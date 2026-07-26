@@ -1,0 +1,210 @@
+export type UserRole = 'admin' | 'doctor' | 'nurse' | 'receptionist' | 'lab_tech' | 'cashier';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Patient {
+  id: string;
+  mrn: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: 'male' | 'female' | 'other';
+  phone: string;
+  email?: string;
+  address?: string;
+  bloodGroup?: string;
+  allergies?: string;
+  chronicConditions?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DoctorSchedule {
+  id: string;
+  doctorId: string;
+  dayOfWeek: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  createdAt: string;
+}
+
+export type AppointmentStatus = 'booked' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  scheduledAt: string;
+  queueNumber: number;
+  status: AppointmentStatus;
+  createdAt: string;
+}
+
+export interface Visit {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  diagnosisCode?: string;
+  diagnosisDescription?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PrescriptionItem {
+  drugName: string;
+  dosage: string;
+  frequency: string;
+  route: string;
+  duration: string;
+}
+
+export interface Prescription {
+  id: string;
+  visitId: string;
+  patientId: string;
+  doctorId: string;
+  items: PrescriptionItem[];
+  pdfUrl?: string;
+  createdAt: string;
+}
+
+export type LabOrderStatus = 'ordered' | 'sample_collected' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface LabOrder {
+  id: string;
+  visitId: string;
+  patientId: string;
+  orderedByDoctorId: string;
+  testType: string;
+  status: LabOrderStatus;
+  resultText?: string;
+  resultPdfUrl?: string;
+  completedByLabTechId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PaymentStatus = 'pending' | 'paid' | 'partial' | 'cancelled';
+export type PaymentMethod = 'cash' | 'telebirr' | 'cbe_birr' | 'insurance';
+
+export interface InvoiceItem {
+  id?: string;
+  invoiceId?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface Invoice {
+  id: string;
+  patientId: string;
+  visitId?: string;
+  totalAmount: string;
+  amountPaid: string;
+  status: PaymentStatus;
+  paymentMethod?: PaymentMethod;
+  items: InvoiceItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
+
+export interface CreatePatientDto {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  bloodGroup?: string;
+  allergies?: string;
+  chronicConditions?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+}
+
+export interface CreateScheduleDto {
+  doctorId: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes?: number;
+}
+
+export interface CreateAppointmentDto {
+  patientId: string;
+  doctorId: string;
+  scheduledAt: string;
+}
+
+export interface CreateVisitDto {
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  diagnosisCode?: string;
+  diagnosisDescription?: string;
+}
+
+export interface CreatePrescriptionDto {
+  visitId: string;
+  patientId: string;
+  doctorId: string;
+  items: PrescriptionItem[];
+}
+
+export interface CreateLabOrderDto {
+  visitId: string;
+  patientId: string;
+  orderedByDoctorId: string;
+  testType: string;
+}
+
+export interface UpdateLabOrderDto {
+  status?: string;
+  resultText?: string;
+  completedByLabTechId?: string;
+}
+
+export interface CreateInvoiceDto {
+  patientId: string;
+  visitId?: string;
+  items: { description: string; quantity: number; unitPrice: number }[];
+}
+
+export interface PayInvoiceDto {
+  amount: number;
+  paymentMethod: string;
+}
+
+export interface CreateUserDto {
+  email: string;
+  password: string;
+  name: string;
+  role: string;
+}
