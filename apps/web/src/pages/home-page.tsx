@@ -91,8 +91,8 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                <Button asChild className="rounded-full px-5">
-                  <Link to="/dashboard">Dashboard</Link>
+                <Button render={<Link to="/dashboard" />} className="rounded-full px-5">
+                  Dashboard
                 </Button>
                 <Button variant="ghost" size="icon" className="rounded-full" onClick={logout} title="Log out">
                   <LogOut className="size-4" />
@@ -100,11 +100,11 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                <Button asChild variant="ghost" className="rounded-full px-5">
-                  <Link to="/booking">{t('auth.bookAppointment')}</Link>
+                <Button render={<Link to="/booking" />} variant="ghost" className="rounded-full px-5">
+                  {t('auth.bookAppointment')}
                 </Button>
-                <Button asChild variant="ghost" className="rounded-full px-5">
-                  <Link to="/login">{t('auth.login')}</Link>
+                <Button render={<Link to="/login" />} variant="ghost" className="rounded-full px-5">
+                  {t('auth.login')}
                 </Button>
               </>
             )}
@@ -135,17 +135,13 @@ export default function HomePage() {
                 {t('home.description')}
               </p>
               <div className="flex flex-wrap gap-3">
-                <Button asChild size="lg" className="rounded-full px-7 h-12 text-sm font-semibold">
-                  <Link to="/booking">
-                    {t('auth.bookAppointment')}
-                    <ArrowRight className="size-4 ml-1" />
-                  </Link>
+                <Button render={<Link to="/booking" />} size="lg" className="rounded-full px-7 h-12 text-sm font-semibold">
+                  {t('auth.bookAppointment')}
+                  <ArrowRight className="size-4 ml-1" />
                 </Button>
-                <Button asChild size="lg" variant="outline" className="rounded-full px-7 h-12 text-sm font-semibold">
-                  <Link to="/login">
-                    {t('auth.staffLogin')}
-                    <ChevronRight className="size-4 ml-1" />
-                  </Link>
+                <Button render={<Link to="/login" />} size="lg" variant="outline" className="rounded-full px-7 h-12 text-sm font-semibold">
+                  {t('auth.staffLogin')}
+                  <ChevronRight className="size-4 ml-1" />
                 </Button>
               </div>
             </div>
@@ -254,11 +250,9 @@ export default function HomePage() {
               <p className="text-white/70 text-base max-w-md mx-auto mb-8">
                 Join healthcare teams already using SofOmar Clinic to deliver better patient care.
               </p>
-              <Button asChild size="lg" className="rounded-full px-8 h-12 text-sm font-semibold bg-white text-primary hover:bg-white/90">
-                <Link to="/login">
-                  Sign In to Get Started
-                  <ArrowRight className="size-4 ml-1.5" />
-                </Link>
+              <Button render={<Link to="/login" />} size="lg" className="rounded-full px-8 h-12 text-sm font-semibold bg-white text-primary hover:bg-white/90">
+                Sign In to Get Started
+                <ArrowRight className="size-4 ml-1.5" />
               </Button>
             </div>
           </div>

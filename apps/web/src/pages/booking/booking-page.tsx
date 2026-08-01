@@ -202,7 +202,7 @@ function BookingPage() {
                       setSelectedSlot(null);
                       setStep('slots');
                     }}
-                    min={minDate}
+                    min={minDate.toISOString().split('T')[0]}
                     max={maxDate.toISOString().split('T')[0]}
                     className="mt-1.5"
                   />
@@ -357,8 +357,8 @@ function BookingPage() {
                 </div>
 
                 <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-                  <Button asChild variant="outline">
-                    <Link to="/">Back to Home</Link>
+                  <Button render={<Link to="/" />} variant="outline">
+                    Back to Home
                   </Button>
                   <Button
                     onClick={() => {

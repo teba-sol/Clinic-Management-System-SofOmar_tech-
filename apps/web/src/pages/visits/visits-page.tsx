@@ -71,16 +71,17 @@ export default function VisitsPage() {
               ? 'No visits match your search. Try a different name or MRN.'
               : 'Start a visit from the queue to begin recording SOAP notes'
           }
-        >
-          {!search && (
-            <a href="/queue">
-              <Button variant="outline" size="sm" className="gap-1.5 mt-2">
-                <ExternalLink className="size-3.5" />
-                Go to Queue
-              </Button>
-            </a>
-          )}
-        </EmptyState>
+          action={
+            !search && (
+              <a href="/queue">
+                <Button variant="outline" size="sm" className="gap-1.5 mt-2">
+                  <ExternalLink className="size-3.5" />
+                  Go to Queue
+                </Button>
+              </a>
+            )
+          }
+        />
       ) : (
         <div className="grid gap-4">
           {filteredVisits.map((visit) => {

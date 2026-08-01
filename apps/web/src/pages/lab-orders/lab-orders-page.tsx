@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { FlaskConical, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import type { LabOrder, Patient } from '@/types';
+import type { LabOrder, LabOrderStatus, Patient } from '@/types';
 
 export default function LabOrdersPage() {
   const { user } = useAuth();
@@ -257,7 +257,7 @@ function UpdateLabOrderForm({
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ status, resultText: resultText || undefined }); }} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Status</Label>
-        <Select value={status} onValueChange={(v: string | null) => setStatus(v ?? order.status)}>
+        <Select value={status} onValueChange={(v: string | null) => setStatus((v ?? order.status) as LabOrderStatus)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ordered">Ordered</SelectItem>

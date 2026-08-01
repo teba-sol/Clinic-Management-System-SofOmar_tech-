@@ -13,8 +13,8 @@ export function LanguageSwitcher() {
 
   return (
     <Select
-      value={i18n.language}
-      onValueChange={(v) => i18n.changeLanguage(v)}
+      value={i18n.language ?? 'en'}
+      onValueChange={(v) => { if (v) i18n.changeLanguage(v); }}
     >
       <SelectTrigger className="w-32 h-8 text-xs gap-1">
         <Globe className="size-3.5 shrink-0" />

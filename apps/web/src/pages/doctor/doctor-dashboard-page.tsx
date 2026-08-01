@@ -355,12 +355,12 @@ export default function DoctorDashboardPage() {
                     }
                     onContinue={
                       appt.status === 'in_progress'
-                        ? handleOpenWorkspace
+                        ? (a) => handleOpenWorkspace(a as AppointmentWithPatient)
                         : undefined
                     }
                     onView={
                       appt.status === 'completed'
-                        ? handleOpenWorkspace
+                        ? (a) => handleOpenWorkspace(a as AppointmentWithPatient)
                         : undefined
                     }
                     isPending={startVisitMutation.isPending}
