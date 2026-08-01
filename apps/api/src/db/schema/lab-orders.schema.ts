@@ -9,7 +9,7 @@ export const labOrderStatusEnum = pgEnum('lab_order_status', [
 
 export const labOrders = pgTable('lab_orders', {
   id: uuid('id').primaryKey().defaultRandom(),
-  visitId: uuid('visit_id').notNull().references(() => visits.id, { onDelete: 'cascade' }),
+  visitId: uuid('visit_id').references(() => visits.id, { onDelete: 'cascade' }),
   patientId: uuid('patient_id').notNull().references(() => patients.id, { onDelete: 'cascade' }),
   orderedByDoctorId: uuid('ordered_by_doctor_id').notNull().references(() => users.id),
   testType: text('test_type').notNull(),

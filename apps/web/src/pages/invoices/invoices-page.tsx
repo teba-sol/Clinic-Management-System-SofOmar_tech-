@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { PageHeader } from '@/components/shared/page-header';
@@ -8,8 +9,9 @@ import { StatusBadge } from '@/components/shared/status-badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchSelect } from '@/components/shared/search-select';
 import {
   Dialog,
   DialogContent,
@@ -17,14 +19,25 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Receipt, Plus, Trash2, CreditCard } from 'lucide-react';
+import { Receipt, Plus, Trash2, CreditCard, Printer, Eye, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Invoice, Patient } from '@/types';
+import type { Invoice, Patient, Service } from '@/types';
 
 export default function InvoicesPage() {
+  const [searchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(false);
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [preselectedPatientId, setPreselectedPatientId] = useState('');
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const pid = searchParams.get('patientId');
+    if (pid) {
+      setPreselectedPatientId(pid);
+      setShowCreate(true);
+    }
+  }, [searchParams]);
 
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
     queryKey: ['invoices'],
@@ -33,7 +46,7 @@ export default function InvoicesPage() {
 
   const { data: patients } = useQuery<Patient[]>({
     queryKey: ['patients'],
-    queryFn: () => api.get('/patients').then((r) => r.data),
+    queryFn: () => api.get('/patients').then((r) => r.data).catch(() => []),
   });
 
   const createMutation = useMutation({
@@ -88,7 +101,7 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Pending ({pending.length})</h3>
               <div className="grid gap-3">
                 {pending.map((inv) => (
-                  <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} />
+                  <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} onView={setViewingInvoice} />
                 ))}
               </div>
             </div>
@@ -98,7 +111,7 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Paid ({paid.length})</h3>
               <div className="grid gap-3">
                 {paid.map((inv) => (
-                  <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} />
+                  <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} onView={setViewingInvoice} />
                 ))}
               </div>
             </div>
@@ -113,6 +126,7 @@ export default function InvoicesPage() {
           </DialogHeader>
           <CreateInvoiceForm
             patients={patients || []}
+            preselectedPatientId={preselectedPatientId}
             onSubmit={(data) => createMutation.mutate(data)}
             loading={createMutation.isPending}
           />
@@ -133,11 +147,20 @@ export default function InvoicesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!viewingInvoice} onOpenChange={() => setViewingInvoice(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Invoice Details</DialogTitle>
+          </DialogHeader>
+          {viewingInvoice && <InvoiceDetailView invoice={viewingInvoice} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function InvoiceCard({ invoice, onPay }: { invoice: Invoice; onPay: (inv: Invoice) => void }) {
+function InvoiceCard({ invoice, onPay, onView }: { invoice: Invoice; onPay: (inv: Invoice) => void; onView: (inv: Invoice) => void }) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="py-4">
@@ -150,7 +173,7 @@ function InvoiceCard({ invoice, onPay }: { invoice: Invoice; onPay: (inv: Invoic
               {new Date(invoice.createdAt).toLocaleDateString()}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="text-right">
               <p className="text-lg font-bold">${invoice.totalAmount}</p>
               {Number(invoice.amountPaid) > 0 && (
@@ -158,6 +181,9 @@ function InvoiceCard({ invoice, onPay }: { invoice: Invoice; onPay: (inv: Invoic
               )}
             </div>
             <StatusBadge status={invoice.status} />
+            <Button size="sm" variant="ghost" onClick={() => onView(invoice)} title="View details">
+              <Eye className="size-3.5" />
+            </Button>
             {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
               <Button size="sm" className="gap-1.5" onClick={() => onPay(invoice)}>
                 <CreditCard className="size-3.5" />
@@ -173,23 +199,69 @@ function InvoiceCard({ invoice, onPay }: { invoice: Invoice; onPay: (inv: Invoic
 
 function CreateInvoiceForm({
   patients,
+  preselectedPatientId,
   onSubmit,
   loading,
 }: {
   patients: Patient[];
+  preselectedPatientId?: string;
   onSubmit: (data: any) => void;
   loading: boolean;
 }) {
-  const [patientId, setPatientId] = useState('');
+  const { data: services } = useQuery<Service[]>({
+    queryKey: ['services'],
+    queryFn: () => api.get('/services/active').then((r) => r.data).catch(() => []),
+  });
+
+  const [patientId, setPatientId] = useState(preselectedPatientId || '');
   const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number }[]>([
     { description: '', quantity: 1, unitPrice: 0 },
   ]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (preselectedPatientId && preselectedPatientId !== patientId) {
+      setPatientId(preselectedPatientId);
+    }
+  }, [preselectedPatientId]);
+
+  useEffect(() => {
+    if (patientId && items.length === 1 && !items[0].description) {
+      loadSuggestions();
+    }
+  }, [patientId]);
+
+  const loadSuggestions = async () => {
+    if (!patientId) return;
+    setLoadingSuggestions(true);
+    try {
+      const data = await api.get(`/invoices/suggestions/${patientId}`).then((r) => r.data);
+      if (data.items && data.items.length > 0) {
+        setItems(data.items.map((i: any) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })));
+        toast.success(`Loaded ${data.items.length} item(s) from visit${data.hasVisit ? '' : ' (no recent visit)'}`);
+      } else {
+        toast('No suggestions found for this patient');
+      }
+    } catch {
+      toast.error('Failed to load suggestions');
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
 
   const addItem = () => setItems([...items, { description: '', quantity: 1, unitPrice: 0 }]);
   const removeItem = (i: number) => items.length > 1 && setItems(items.filter((_, idx) => idx !== i));
   const updateItem = (i: number, field: string, value: any) => {
     const updated = [...items];
     (updated[i] as any)[field] = field === 'quantity' || field === 'unitPrice' ? Number(value) : value;
+    setItems(updated);
+  };
+  const selectService = (i: number, serviceId: string) => {
+    const svc = services?.find((s) => s.id === serviceId);
+    if (!svc) return;
+    const updated = [...items];
+    updated[i].description = svc.name;
+    updated[i].unitPrice = Number(svc.defaultPrice);
     setItems(updated);
   };
 
@@ -199,22 +271,30 @@ function CreateInvoiceForm({
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ patientId, items }); }} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Patient *</Label>
-        <Select value={patientId} onValueChange={(v: string | null) => setPatientId(v ?? "")}>
-          <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-          <SelectContent>
-            {patients.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchSelect
+          items={patients.map((p) => ({
+            value: p.id,
+            label: `${p.firstName} ${p.lastName}`,
+            subtitle: p.mrn,
+          }))}
+          value={patientId}
+          onValueChange={setPatientId}
+          placeholder="Select patient"
+        />
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label>Line Items</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1">
-            <Plus className="size-3" /> Add Item
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={loadSuggestions} disabled={!patientId || loadingSuggestions} className="gap-1">
+              <Sparkles className={loadingSuggestions ? 'size-3 animate-spin' : 'size-3'} />
+              {loadingSuggestions ? 'Loading...' : 'Auto-Fill'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1">
+              <Plus className="size-3" /> Add Item
+            </Button>
+          </div>
         </div>
         {items.map((item, i) => (
           <div key={i} className="p-3 rounded-xl border space-y-2 bg-muted/20">
@@ -225,6 +305,19 @@ function CreateInvoiceForm({
                   <Trash2 className="size-3" />
                 </Button>
               )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Service</Label>
+              <SearchSelect
+                items={(services || []).map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  subtitle: `$${s.defaultPrice} — ${s.category}`,
+                }))}
+                value=""
+                onValueChange={(v: string | null) => selectService(i, v ?? "")}
+                placeholder="Select a service"
+              />
             </div>
             <Input placeholder="Description" value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} required />
             <div className="grid grid-cols-2 gap-3">
@@ -298,5 +391,139 @@ function PayInvoiceForm({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+function InvoiceDetailView({ invoice }: { invoice: Invoice }) {
+  const { data: detail, isFetching } = useQuery<any>({
+    queryKey: ['invoice', invoice.id],
+    queryFn: () => api.get(`/invoices/${invoice.id}`).then((r) => r.data),
+  });
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Invoice ${invoice.id.slice(0, 8).toUpperCase()}</title>
+        <style>
+          body { font-family: 'Courier New', monospace; font-size: 12px; margin: 0; padding: 20px; color: #000; }
+          .receipt { max-width: 300px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 16px; border-bottom: 1px dashed #000; padding-bottom: 12px; }
+          .header h1 { font-size: 16px; margin: 0 0 4px; }
+          .header p { margin: 2px 0; font-size: 11px; color: #555; }
+          .items { width: 100%; margin: 12px 0; border-collapse: collapse; }
+          .items th { text-align: left; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid #000; padding: 4px 0; }
+          .items td { padding: 4px 0; font-size: 11px; }
+          .items td:last-child { text-align: right; }
+          .total { border-top: 2px solid #000; margin-top: 8px; padding-top: 8px; display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
+          .footer { text-align: center; margin-top: 16px; border-top: 1px dashed #000; padding-top: 12px; font-size: 10px; color: #555; }
+          .status { text-align: center; margin: 8px 0; font-size: 13px; font-weight: bold; text-transform: uppercase; }
+          .patient-info { margin: 8px 0; font-size: 11px; }
+          .patient-info p { margin: 2px 0; }
+          .payment-info { margin: 8px 0; font-size: 11px; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <h1>SofOmar Clinic</h1>
+            <p>Payment Receipt</p>
+            <p>${new Date(invoice.createdAt).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+          </div>
+          <p style="font-size:10px;color:#555;">Invoice #${invoice.id.slice(0, 8).toUpperCase()}</p>
+          <table class="items">
+            <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+            <tbody>
+              ${(detail?.items || []).map((item: any) => `
+                <tr>
+                  <td>${item.description}</td>
+                  <td>${item.quantity}</td>
+                  <td>$${Number(item.unitPrice).toFixed(2)}</td>
+                  <td>$${(item.quantity * Number(item.unitPrice)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="total"><span>Total</span><span>$${invoice.totalAmount}</span></div>
+          ${Number(invoice.amountPaid) > 0 ? `
+            <div class="payment-info">
+              <p>Paid: $${invoice.amountPaid}</p>
+              <p>Method: ${(invoice.paymentMethod || 'N/A').replace('_', ' ')}</p>
+            </div>
+          ` : ''}
+          <div class="status" style="color:${invoice.status === 'paid' ? '#16a34a' : '#d97706'}">${invoice.status.replace('_', ' ')}</div>
+          <div class="footer">
+            <p>Thank you for your visit!</p>
+            <p>SofOmar Clinic Management System</p>
+          </div>
+        </div>
+        <script>window.print();window.close();<\/script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  if (isFetching) return <div className="text-sm text-muted-foreground text-center py-8">Loading...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold">Invoice #{invoice.id.slice(0, 8).toUpperCase()}</p>
+          <p className="text-xs text-muted-foreground">{new Date(invoice.createdAt).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+        </div>
+        <StatusBadge status={invoice.status} />
+      </div>
+
+      <div className="border rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-muted/50">
+              <th className="text-left p-3 font-medium">Description</th>
+              <th className="text-right p-3 font-medium">Qty</th>
+              <th className="text-right p-3 font-medium">Price</th>
+              <th className="text-right p-3 font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(detail?.items || []).map((item: any, i: number) => (
+              <tr key={item.id || i} className="border-t">
+                <td className="p-3">{item.description}</td>
+                <td className="p-3 text-right">{item.quantity}</td>
+                <td className="p-3 text-right">${Number(item.unitPrice).toFixed(2)}</td>
+                <td className="p-3 text-right font-medium">${(item.quantity * Number(item.unitPrice)).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
+        <span className="font-semibold">Total</span>
+        <span className="text-xl font-bold">${invoice.totalAmount}</span>
+      </div>
+
+      {Number(invoice.amountPaid) > 0 && (
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+            <p className="text-xs text-muted-foreground">Amount Paid</p>
+            <p className="font-semibold text-emerald-700">$${invoice.amountPaid}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+            <p className="text-xs text-muted-foreground">Payment Method</p>
+            <p className="font-semibold capitalize">{(invoice.paymentMethod || 'N/A').replace('_', ' ')}</p>
+          </div>
+        </div>
+      )}
+
+      <Button onClick={handlePrint} className="w-full gap-2">
+        <Printer className="size-4" />
+        Print Receipt
+      </Button>
+    </div>
   );
 }

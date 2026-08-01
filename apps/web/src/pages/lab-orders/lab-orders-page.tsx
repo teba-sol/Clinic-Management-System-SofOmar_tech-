@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { usePatientContext } from '@/context/patient-context';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingPage } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchSelect } from '@/components/shared/search-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -20,24 +21,27 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { FlaskConical, Plus, Beaker, CheckCircle2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FlaskConical, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { LabOrder, Patient } from '@/types';
 
 export default function LabOrdersPage() {
   const { user } = useAuth();
+  const { patient: contextPatient } = usePatientContext();
   const [showCreate, setShowCreate] = useState(false);
   const [updatingOrder, setUpdatingOrder] = useState<LabOrder | null>(null);
   const queryClient = useQueryClient();
 
   const { data: labOrders, isLoading } = useQuery<LabOrder[]>({
     queryKey: ['lab-orders'],
-    queryFn: () => {
-      if (user?.role === 'lab_tech') {
-        return api.get('/lab-orders/pending').then((r) => r.data);
-      }
-      return api.get('/lab-orders').then((r) => r.data).catch(() => []);
-    },
+    queryFn: () => api.get('/lab-orders').then((r) => r.data).catch(() => []),
   });
 
   const { data: patients } = useQuery<Patient[]>({
@@ -50,9 +54,9 @@ export default function LabOrdersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lab-orders'] });
       setShowCreate(false);
-      toast.success('Lab order placed');
+      toast.success('Lab order created');
     },
-    onError: () => toast.error('Failed to place lab order'),
+    onError: () => toast.error('Failed to create lab order'),
   });
 
   const updateMutation = useMutation({
@@ -65,17 +69,17 @@ export default function LabOrdersPage() {
     onError: () => toast.error('Failed to update lab order'),
   });
 
-  if (isLoading) return <LoadingPage />;
-
-  const pending = (labOrders || []).filter((o) => o.status === 'ordered');
-  const inProgress = (labOrders || []).filter((o) => ['sample_collected', 'in_progress'].includes(o.status));
+  const pending = (labOrders || []).filter((o) => o.status === 'ordered' || o.status === 'sample_collected');
+  const inProgress = (labOrders || []).filter((o) => o.status === 'in_progress');
   const completed = (labOrders || []).filter((o) => o.status === 'completed');
+
+  if (isLoading) return <LoadingPage />;
 
   return (
     <div>
       <PageHeader
         title="Lab Orders"
-        description="Order and track laboratory tests"
+        description="Manage laboratory test orders and results"
         action={
           user?.role === 'doctor' ? (
             <Button onClick={() => setShowCreate(true)} className="gap-2">
@@ -89,33 +93,36 @@ export default function LabOrdersPage() {
       {!labOrders?.length ? (
         <EmptyState
           icon={FlaskConical}
-          title="No lab orders"
-          description="Lab orders placed by doctors will appear here"
+          title="No lab orders yet"
+          description="Order lab tests during patient visits"
         />
       ) : (
         <Tabs defaultValue="pending">
-          <TabsList className="mb-4">
-            <TabsTrigger value="pending" className="gap-1.5">
-              <Beaker className="size-3.5" />
-              Pending ({pending.length})
-            </TabsTrigger>
-            <TabsTrigger value="in-progress" className="gap-1.5">
-              In Progress ({inProgress.length})
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="gap-1.5">
-              <CheckCircle2 className="size-3.5" />
-              Completed ({completed.length})
-            </TabsTrigger>
+          <TabsList>
+            <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
+            <TabsTrigger value="in-progress">In Progress ({inProgress.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pending">
-            <LabOrderList orders={pending} onUpdate={setUpdatingOrder} />
+          <TabsContent value="pending" className="mt-4 space-y-3">
+            {pending.map((order) => (
+              <LabOrderCard key={order.id} order={order} onUpdate={setUpdatingOrder} user={user} />
+            ))}
+            {pending.length === 0 && <EmptyState icon={FlaskConical} title="No pending orders" />}
           </TabsContent>
-          <TabsContent value="in-progress">
-            <LabOrderList orders={inProgress} onUpdate={setUpdatingOrder} />
+
+          <TabsContent value="in-progress" className="mt-4 space-y-3">
+            {inProgress.map((order) => (
+              <LabOrderCard key={order.id} order={order} onUpdate={setUpdatingOrder} user={user} />
+            ))}
+            {inProgress.length === 0 && <EmptyState icon={FlaskConical} title="No in-progress orders" />}
           </TabsContent>
-          <TabsContent value="completed">
-            <LabOrderList orders={completed} onUpdate={setUpdatingOrder} />
+
+          <TabsContent value="completed" className="mt-4 space-y-3">
+            {completed.map((order) => (
+              <LabOrderCard key={order.id} order={order} onUpdate={setUpdatingOrder} user={user} />
+            ))}
+            {completed.length === 0 && <EmptyState icon={FlaskConical} title="No completed orders" />}
           </TabsContent>
         </Tabs>
       )}
@@ -128,13 +135,14 @@ export default function LabOrdersPage() {
           <CreateLabOrderForm
             patients={patients || []}
             doctorId={user?.id || ''}
+            defaultPatientId={contextPatient?.id || ''}
             onSubmit={(data) => createMutation.mutate(data)}
             loading={createMutation.isPending}
           />
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!updatingOrder} onOpenChange={() => setUpdatingOrder(null)}>
+      <Dialog open={!!updatingOrder} onOpenChange={(o) => !o && setUpdatingOrder(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update Lab Order</DialogTitle>
@@ -152,84 +160,81 @@ export default function LabOrdersPage() {
   );
 }
 
-function LabOrderList({
-  orders,
-  onUpdate,
-}: {
-  orders: LabOrder[];
-  onUpdate: (order: LabOrder) => void;
-}) {
-  if (!orders.length) {
-    return (
-      <div className="text-center py-12 text-muted-foreground text-sm">No orders in this category</div>
-    );
-  }
-
+function LabOrderCard({ order, onUpdate, user }: { order: LabOrder; onUpdate: (o: LabOrder) => void; user: any }) {
+  const canUpdate = user?.role === 'lab_tech' || user?.role === 'admin';
   return (
-    <div className="grid gap-3">
-      {orders.map((order) => (
-        <Card key={order.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold text-sm">{order.testType}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Ordered: {new Date(order.createdAt).toLocaleDateString()}
-                </p>
-                {order.resultText && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Result: {order.resultText}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={order.status} />
-                <Button variant="outline" size="sm" onClick={() => onUpdate(order)}>
-                  Update
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card>
+      <CardContent className="pt-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-semibold">{order.testType}</p>
+            <p className="text-xs text-muted-foreground">
+              {new Date(order.createdAt).toLocaleDateString()}
+            </p>
+            {order.resultText && <p className="text-sm mt-1">{order.resultText}</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={order.status} />
+            {canUpdate && order.status !== 'completed' && (
+              <Button size="sm" variant="outline" onClick={() => onUpdate(order)}>
+                Update
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function CreateLabOrderForm({
   patients,
   doctorId,
+  defaultPatientId,
   onSubmit,
   loading,
 }: {
   patients: Patient[];
   doctorId: string;
+  defaultPatientId?: string;
   onSubmit: (data: any) => void;
   loading: boolean;
 }) {
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState(defaultPatientId || '');
   const [testType, setTestType] = useState('');
 
   return (
-      <form onSubmit={(e: React.FormEvent) => { e.preventDefault(); onSubmit({ patientId, orderedByDoctorId: doctorId, testType, visitId: '00000000-0000-0000-0000-000000000000' }); }} className="space-y-4">
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ patientId, orderedByDoctorId: doctorId, testType }); }} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Patient *</Label>
-        <Select value={patientId} onValueChange={(v: string | null) => setPatientId(v ?? "")}>
-          <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-          <SelectContent>
-            {patients.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {defaultPatientId ? (
+          <div className="h-9 px-3 rounded-lg border bg-muted/50 flex items-center text-sm text-muted-foreground">
+            {patients.find((p) => p.id === defaultPatientId)?.firstName}{' '}
+            {patients.find((p) => p.id === defaultPatientId)?.lastName} —{' '}
+            {patients.find((p) => p.id === defaultPatientId)?.mrn}
+          </div>
+        ) : (
+          <SearchSelect
+            items={patients.map((p) => ({
+              value: p.id,
+              label: `${p.firstName} ${p.lastName}`,
+              subtitle: p.mrn,
+            }))}
+            value={patientId}
+            onValueChange={(v) => { setPatientId(v); }}
+            placeholder="Select patient"
+          />
+        )}
       </div>
+
       <div className="space-y-1.5">
         <Label>Test Type *</Label>
-        <Input value={testType} onChange={(e) => setTestType(e.target.value)} placeholder="e.g. Complete Blood Count" required />
+        <Input value={testType} onChange={(e) => setTestType(e.target.value)} placeholder="e.g. Complete Blood Count" />
       </div>
+
       <DialogFooter>
         <Button type="submit" disabled={loading || !patientId || !testType}>
-          {loading ? 'Ordering...' : 'Place Order'}
+          {loading ? 'Ordering...' : 'Order Test'}
         </Button>
       </DialogFooter>
     </form>
@@ -249,10 +254,10 @@ function UpdateLabOrderForm({
   const [resultText, setResultText] = useState(order.resultText || '');
 
   return (
-      <form onSubmit={(e: React.FormEvent) => { e.preventDefault(); onSubmit({ status, resultText: resultText || undefined }); }} className="space-y-4">
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ status, resultText: resultText || undefined }); }} className="space-y-4">
       <div className="space-y-1.5">
-        <Label>Status *</Label>
-        <Select value={status} onValueChange={(v: string | null) => { if (v) setStatus(v as typeof status); }}>
+        <Label>Status</Label>
+        <Select value={status} onValueChange={(v: string | null) => setStatus(v ?? order.status)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ordered">Ordered</SelectItem>
@@ -264,13 +269,11 @@ function UpdateLabOrderForm({
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label>Result</Label>
-        <Textarea value={resultText} onChange={(e) => setResultText(e.target.value)} placeholder="Enter test results..." rows={4} />
+        <Label>Result Text</Label>
+        <Textarea value={resultText} onChange={(e) => setResultText(e.target.value)} placeholder="Enter test results..." />
       </div>
       <DialogFooter>
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Updating...' : 'Update Order'}
-        </Button>
+        <Button type="submit" disabled={loading}>{loading ? 'Updating...' : 'Update Order'}</Button>
       </DialogFooter>
     </form>
   );

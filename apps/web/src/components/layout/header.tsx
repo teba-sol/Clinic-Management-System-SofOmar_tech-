@@ -1,5 +1,7 @@
+import { useTranslation } from 'react-i18next';
 import { LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { LanguageSwitcher } from '@/components/shared/language-switcher';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -37,6 +39,7 @@ function getInitials(name: string): string {
 }
 
 export function Header() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
 
   return (
@@ -55,6 +58,7 @@ export function Header() {
       </Sheet>
 
       <div className="flex-1" />
+      <LanguageSwitcher />
 
       {user && (
         <DropdownMenu>
@@ -86,7 +90,7 @@ export function Header() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
               <LogOut className="size-4 mr-2" />
-              Log out
+              {t('auth.logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { usePatientContext } from '@/context/patient-context';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingPage } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchSelect } from '@/components/shared/search-select';
 import {
   Dialog,
   DialogContent,
@@ -19,11 +20,12 @@ import {
 } from '@/components/ui/dialog';
 import { Pill, Plus, Download, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Prescription, Patient } from '@/types';
+import type { Prescription, Patient, Visit } from '@/types';
 import type { PrescriptionItem } from '@/types';
 
 export default function PrescriptionsPage() {
   const { user } = useAuth();
+  const { patient: contextPatient } = usePatientContext();
   const [showCreate, setShowCreate] = useState(false);
   const queryClient = useQueryClient();
 
@@ -35,6 +37,11 @@ export default function PrescriptionsPage() {
   const { data: patients } = useQuery<Patient[]>({
     queryKey: ['patients'],
     queryFn: () => api.get('/patients').then((r) => r.data),
+  });
+
+  const { data: visits } = useQuery<Visit[]>({
+    queryKey: ['visits'],
+    queryFn: () => api.get('/visits').then((r) => r.data).catch(() => []),
   });
 
   const createMutation = useMutation({
@@ -129,7 +136,9 @@ export default function PrescriptionsPage() {
           </DialogHeader>
           <PrescriptionForm
             patients={patients || []}
+            visits={visits || []}
             doctorId={user?.id || ''}
+            defaultPatientId={contextPatient?.id || ''}
             onSubmit={(data) => createMutation.mutate(data)}
             loading={createMutation.isPending}
           />
@@ -141,19 +150,26 @@ export default function PrescriptionsPage() {
 
 function PrescriptionForm({
   patients,
+  visits,
   doctorId,
+  defaultPatientId,
   onSubmit,
   loading,
 }: {
   patients: Patient[];
+  visits: Visit[];
   doctorId: string;
+  defaultPatientId?: string;
   onSubmit: (data: any) => void;
   loading: boolean;
 }) {
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState(defaultPatientId || '');
+  const [visitId, setVisitId] = useState('');
   const [items, setItems] = useState<PrescriptionItem[]>([
     { drugName: '', dosage: '', frequency: '', route: '', duration: '' },
   ]);
+
+  const filteredVisits = patientId ? visits.filter((v) => v.patientId === patientId) : [];
 
   const addItem = () => {
     setItems([...items, { drugName: '', dosage: '', frequency: '', route: '', duration: '' }]);
@@ -175,7 +191,7 @@ function PrescriptionForm({
     e.preventDefault();
     onSubmit({
       patientId,
-      visitId: '00000000-0000-0000-0000-000000000000',
+      visitId: visitId || '00000000-0000-0000-0000-000000000000',
       doctorId,
       items,
     });
@@ -185,15 +201,41 @@ function PrescriptionForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Patient *</Label>
-        <Select value={patientId} onValueChange={(v: string | null) => setPatientId(v ?? "")}>
-          <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
-          <SelectContent>
-            {patients.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {defaultPatientId ? (
+          <div className="h-9 px-3 rounded-lg border bg-muted/50 flex items-center text-sm text-muted-foreground">
+            {patients.find((p) => p.id === defaultPatientId)?.firstName}{' '}
+            {patients.find((p) => p.id === defaultPatientId)?.lastName} —{' '}
+            {patients.find((p) => p.id === defaultPatientId)?.mrn}
+          </div>
+        ) : (
+          <SearchSelect
+            items={patients.map((p) => ({
+              value: p.id,
+              label: `${p.firstName} ${p.lastName}`,
+              subtitle: p.mrn,
+            }))}
+            value={patientId}
+            onValueChange={(v) => { setPatientId(v); setVisitId(''); }}
+            placeholder="Select patient"
+          />
+        )}
       </div>
+
+      {patientId && filteredVisits.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Link to Visit</Label>
+          <SearchSelect
+            items={filteredVisits.map((v) => ({
+              value: v.id,
+              label: new Date(v.createdAt).toLocaleDateString(),
+              subtitle: v.diagnosisDescription || 'SOAP visit',
+            }))}
+            value={visitId}
+            onValueChange={setVisitId}
+            placeholder="Optional — select visit"
+          />
+        </div>
+      )}
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

@@ -17,13 +17,13 @@ export class PatientsController {
   }
 
   @Get()
-  @Roles('admin', 'receptionist', 'nurse', 'doctor')
+  @Roles('admin', 'receptionist', 'nurse', 'doctor', 'cashier')
   findAll() {
     return this.patientsService.findAll();
   }
 
   @Get(':id')
-  @Roles('admin', 'receptionist', 'nurse', 'doctor')
+  @Roles('admin', 'receptionist', 'nurse', 'doctor', 'cashier')
   findOne(@Param('id') id: string) {
     return this.patientsService.findOne(id);
   }

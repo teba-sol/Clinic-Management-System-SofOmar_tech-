@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -6,36 +6,32 @@ import { useAuth } from '@/context/auth-context';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingPage } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
-import { StatusBadge } from '@/components/shared/status-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription,
+} from '@/components/ui/sheet';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { UserPlus, Search, Users, Eye } from 'lucide-react';
+import { UserPlus, Search, Users, Eye, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Patient } from '@/types';
+import type { Patient, Visit } from '@/types';
 import type { CreatePatientDto } from '@/types';
+
+type SortKey = 'name' | 'mrn' | 'phone' | 'lastVisit';
+type SortDir = 'asc' | 'desc';
 
 export default function PatientsListPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -43,6 +39,23 @@ export default function PatientsListPage() {
     queryKey: ['patients'],
     queryFn: () => api.get('/patients').then((r) => r.data),
   });
+
+  const { data: allVisits } = useQuery<Visit[]>({
+    queryKey: ['all-visits'],
+    queryFn: () => api.get('/visits').then((r) => r.data).catch(() => []),
+  });
+
+  const lastVisitMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!allVisits) return map;
+    for (const v of allVisits) {
+      const existing = map.get(v.patientId);
+      if (!existing || new Date(v.createdAt) > new Date(existing)) {
+        map.set(v.patientId, v.createdAt);
+      }
+    }
+    return map;
+  }, [allVisits]);
 
   const createMutation = useMutation({
     mutationFn: (data: CreatePatientDto) => api.post('/patients', data),
@@ -54,15 +67,55 @@ export default function PatientsListPage() {
     onError: () => toast.error('Failed to register patient'),
   });
 
-  const filtered = patients?.filter((p) => {
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ArrowUpDown className="size-3 ml-1 opacity-40" />;
+    return sortDir === 'asc' ? <ArrowUp className="size-3 ml-1" /> : <ArrowDown className="size-3 ml-1" />;
+  };
+
+  const filtered = useMemo(() => {
+    if (!patients) return [];
     const q = search.toLowerCase();
-    return (
+    const filtered_list = patients.filter((p) => (
       p.firstName.toLowerCase().includes(q) ||
       p.lastName.toLowerCase().includes(q) ||
       p.mrn.toLowerCase().includes(q) ||
       p.phone.includes(q)
-    );
-  });
+    ));
+    filtered_list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name':
+          cmp = `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+          break;
+        case 'mrn':
+          cmp = a.mrn.localeCompare(b.mrn);
+          break;
+        case 'phone':
+          cmp = (a.phone || '').localeCompare(b.phone || '');
+          break;
+        case 'lastVisit': {
+          const da = lastVisitMap.get(a.id);
+          const db = lastVisitMap.get(b.id);
+          if (!da && !db) cmp = 0;
+          else if (!da) cmp = 1;
+          else if (!db) cmp = -1;
+          else cmp = new Date(da).getTime() - new Date(db).getTime();
+          break;
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return filtered_list;
+  }, [patients, search, sortKey, sortDir, lastVisitMap]);
 
   if (isLoading) return <LoadingPage />;
 
@@ -102,6 +155,14 @@ export default function PatientsListPage() {
           icon={Users}
           title="No patients found"
           description={search ? 'Try adjusting your search terms' : 'Register your first patient to get started'}
+          action={
+            !search && canCreate ? (
+              <Button onClick={() => setShowCreate(true)}>
+                <UserPlus className="size-4 mr-1.5" />
+                Register Patient
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <Card>
@@ -109,45 +170,54 @@ export default function PatientsListPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>MRN</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Gender</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Blood Group</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('name')}>
+                    <span className="inline-flex items-center">Name <SortIcon column="name" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('mrn')}>
+                    <span className="inline-flex items-center">MRN <SortIcon column="mrn" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('phone')}>
+                    <span className="inline-flex items-center">Phone <SortIcon column="phone" /></span>
+                  </TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('lastVisit')}>
+                    <span className="inline-flex items-center">Last Visit <SortIcon column="lastVisit" /></span>
+                  </TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((patient) => (
-                  <TableRow key={patient.id}>
-                    <TableCell className="font-mono text-xs font-semibold text-primary">
-                      {patient.mrn}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {patient.firstName} {patient.lastName}
-                    </TableCell>
-                    <TableCell className="capitalize">{patient.gender}</TableCell>
-                    <TableCell>{patient.phone}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={patient.bloodGroup || 'unknown'} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link to={`/patients/${patient.id}`}>
-                        <Button variant="ghost" size="sm" className="gap-1.5">
-                          <Eye className="size-3.5" />
-                          View
-                        </Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filtered.map((patient) => {
+                  const lv = lastVisitMap.get(patient.id);
+                  return (
+                    <TableRow key={patient.id}>
+                      <TableCell className="font-medium">
+                        {patient.firstName} {patient.lastName}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-semibold text-primary">
+                        {patient.mrn}
+                      </TableCell>
+                      <TableCell>{patient.phone || '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {lv ? new Date(lv).toLocaleDateString() : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link to={`/patients/${patient.id}`}>
+                          <Button variant="ghost" size="sm" className="gap-1.5">
+                            <Eye className="size-3.5" />
+                            View
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         </Card>
       )}
 
-      <CreatePatientDialog
+      <CreatePatientSheet
         open={showCreate}
         onOpenChange={setShowCreate}
         onSubmit={(data) => createMutation.mutate(data)}
@@ -157,7 +227,7 @@ export default function PatientsListPage() {
   );
 }
 
-function CreatePatientDialog({
+function CreatePatientSheet({
   open,
   onOpenChange,
   onSubmit,
@@ -191,12 +261,22 @@ function CreatePatientDialog({
   const update = (field: keyof CreatePatientDto, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const resetForm = () => {
+    setForm({
+      firstName: '', lastName: '', dateOfBirth: '', gender: '',
+      phone: '', email: '', address: '', bloodGroup: '',
+      allergies: '', chronicConditions: '',
+      emergencyContactName: '', emergencyContactPhone: '',
+    });
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Register New Patient</DialogTitle>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader className="mb-6">
+          <SheetTitle className="text-xl">Register New Patient</SheetTitle>
+          <SheetDescription>Fill in the patient's information to create a new record.</SheetDescription>
+        </SheetHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -268,14 +348,14 @@ function CreatePatientDialog({
             <Label>Chronic Conditions</Label>
             <Textarea value={form.chronicConditions} onChange={(e) => update('chronicConditions', e.target.value)} rows={2} />
           </div>
-          <DialogFooter>
+          <SheetFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={loading}>
               {loading ? 'Registering...' : 'Register Patient'}
             </Button>
-          </DialogFooter>
+          </SheetFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

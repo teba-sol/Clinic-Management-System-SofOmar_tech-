@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchSelect } from '@/components/shared/search-select';
 import { Calendar, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DoctorSchedule, User } from '@/types';
@@ -156,14 +156,12 @@ function ScheduleForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Doctor *</Label>
-        <Select value={doctorId} onValueChange={(v: string | null) => setDoctorId(v ?? "")}>
-          <SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger>
-          <SelectContent>
-            {doctors.map((d) => (
-              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchSelect
+          items={doctors.map((d) => ({ value: d.id, label: `Dr. ${d.name}` }))}
+          value={doctorId}
+          onValueChange={setDoctorId}
+          placeholder="Select doctor"
+        />
       </div>
       <div className="space-y-1.5">
         <Label>Day *</Label>

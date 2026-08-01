@@ -6,3 +6,6 @@ export * from './visits.schema';
 export * from './prescriptions.schema';
 export * from './lab-orders.schema';
 export * from './invoices.schema';
+export * from './vitals.schema';
+export * from './services.schema';
+export * from './diagnosis-codes.schema';

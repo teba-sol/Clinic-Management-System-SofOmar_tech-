@@ -17,6 +17,12 @@ export class LabOrdersController {
     return this.labOrdersService.create(dto);
   }
 
+  @Get()
+  @Roles('admin', 'doctor', 'nurse', 'lab_tech')
+  findAll() {
+    return this.labOrdersService.findAll();
+  }
+
   @Get('pending')
   @Roles('lab_tech', 'admin')
   findPending() {

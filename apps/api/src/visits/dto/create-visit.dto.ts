@@ -1,4 +1,4 @@
-import { IsUUID, IsOptional, IsString } from 'class-validator';
+import { IsUUID, IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class CreateVisitDto {
   @IsUUID()
@@ -33,4 +33,8 @@ export class CreateVisitDto {
   @IsOptional()
   @IsString()
   diagnosisDescription?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  completeAppointment?: boolean;
 }

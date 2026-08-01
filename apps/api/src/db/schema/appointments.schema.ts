@@ -3,7 +3,7 @@ import { users } from './users.schema';
 import { patients } from './patients.schema';
 
 export const appointmentStatusEnum = pgEnum('appointment_status', [
-  'booked', 'checked_in', 'in_progress', 'completed', 'cancelled', 'no_show',
+  'booked', 'checked_in', 'in_progress', 'completed', 'cancelled', 'no_show', 'triaged',
 ]);
 
 export const appointments = pgTable('appointments', {

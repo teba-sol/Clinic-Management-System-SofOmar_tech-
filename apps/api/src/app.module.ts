@@ -9,14 +9,19 @@ import { VisitsModule } from './visits/visits.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { LabOrdersModule } from './lab-orders/lab-orders.module';
 import { InvoicesModule } from './invoices/invoices.module';
-
+import { VitalsModule } from './vitals/vitals.module';
+import { ServicesModule } from './services/services.module';
+import { DiagnosisCodesModule } from './diagnosis-codes/diagnosis-codes.module';
+import { QueueDisplayModule } from './queue-display/queue-display.module';
+import { BookingModule } from './booking/booking.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
     }),
-    UsersModule, 
-    AuthModule, PatientsModule, SchedulesModule, AppointmentsModule, VisitsModule, PrescriptionsModule, LabOrdersModule, InvoicesModule],
+    UsersModule,
+    AuthModule, PatientsModule, SchedulesModule, AppointmentsModule, VisitsModule, PrescriptionsModule, LabOrdersModule, InvoicesModule, VitalsModule, ServicesModule, DiagnosisCodesModule, QueueDisplayModule, BookingModule, AnalyticsModule],
   
 })
 export class AppModule {}

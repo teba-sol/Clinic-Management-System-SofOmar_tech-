@@ -7,6 +7,10 @@ import { generatePrescriptionPdf } from './utils/generate-prescription-pdf';
 
 @Injectable()
 export class PrescriptionsService {
+  async findAll() {
+    return db.select().from(prescriptions).orderBy(prescriptions.createdAt);
+  }
+
   async create(dto: CreatePrescriptionDto) {
     const [prescription] = await db
       .insert(prescriptions)

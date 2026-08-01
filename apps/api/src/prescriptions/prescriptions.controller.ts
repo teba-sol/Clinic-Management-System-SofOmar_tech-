@@ -11,6 +11,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class PrescriptionsController {
   constructor(private readonly prescriptionsService: PrescriptionsService) {}
 
+  @Get()
+  @Roles('doctor', 'nurse', 'admin')
+  findAll() {
+    return this.prescriptionsService.findAll();
+  }
+
   @Post()
   @Roles('doctor')
   create(@Body() dto: CreatePrescriptionDto) {

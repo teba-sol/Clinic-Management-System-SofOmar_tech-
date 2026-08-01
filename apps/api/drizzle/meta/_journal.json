@@ -57,6 +57,62 @@
       "when": 1785096592625,
       "tag": "0007_past_nocturne",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785152512869,
+      "tag": "0008_panoramic_adam_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785153448554,
+      "tag": "0009_right_doctor_strange",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785154188015,
+      "tag": "0010_cute_malcolm_colcord",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785319568149,
+      "tag": "0011_slow_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785320479514,
+      "tag": "0012_glorious_the_hunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785402544246,
+      "tag": "0013_unusual_fat_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785430507056,
+      "tag": "0014_brave_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1785433294924,
+      "tag": "0015_modern_texas_twister",
+      "breakpoints": true
     }
   ]
 }

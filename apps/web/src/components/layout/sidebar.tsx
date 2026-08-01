@@ -1,13 +1,21 @@
-import { NavLink } from 'react-router-dom';
-import { Activity } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Activity, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getFilteredNavItems } from './nav-items';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { useTranslation } from 'react-i18next';
 
 export function Sidebar() {
-  const { user } = useAuth();
+  const { t } = useTranslation();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const items = user ? getFilteredNavItems(user.role) : [];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -16,8 +24,8 @@ export function Sidebar() {
           <Activity className="size-5" />
         </div>
         <div>
-          <h1 className="text-sm font-bold tracking-tight">SofOmar Clinic</h1>
-          <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-widest">Management System</p>
+          <h1 className="text-sm font-bold tracking-tight">{t('app.name')}</h1>
+          <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-widest">{t('app.tagline')}</p>
         </div>
       </div>
 
@@ -38,19 +46,20 @@ export function Sidebar() {
             }
           >
             <item.icon className="size-4 shrink-0" />
-            {item.label}
+            {t(`nav.${item.key}`)}
           </NavLink>
         ))}
       </nav>
 
       <div className="px-3 pb-4">
-        <div className="rounded-xl bg-sidebar-accent/50 px-3 py-3">
-          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wider mb-1">Logged in as</p>
-          <p className="text-sm font-semibold truncate">{user?.name}</p>
-          <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sidebar-primary/20 text-sidebar-primary">
-            {user?.role?.replace('_', ' ')}
-          </span>
-        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-all duration-150 hover:bg-destructive/10 hover:text-destructive"
+        >
+          <LogOut className="size-4 shrink-0" />
+          {t('auth.logout')}
+        </button>
       </div>
     </aside>
   );

@@ -12,21 +12,33 @@ export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 
   @Post()
-  @Roles('cashier', 'admin', 'receptionist')
+  @Roles('cashier', 'admin')
   create(@Body() dto: CreateInvoiceDto) {
     return this.invoicesService.create(dto);
   }
 
-  @Get(':id')
+  @Get()
   @Roles('cashier', 'admin', 'receptionist')
+  findAll() {
+    return this.invoicesService.findAll();
+  }
+
+  @Get(':id')
+  @Roles('cashier', 'admin')
   findOne(@Param('id') id: string) {
     return this.invoicesService.findOne(id);
   }
 
   @Get('patient/:patientId')
-  @Roles('cashier', 'admin', 'receptionist')
+  @Roles('cashier', 'admin')
   findByPatient(@Param('patientId') patientId: string) {
     return this.invoicesService.findByPatient(patientId);
+  }
+
+  @Get('suggestions/:patientId')
+  @Roles('cashier', 'admin')
+  getSuggestions(@Param('patientId') patientId: string) {
+    return this.invoicesService.getSuggestions(patientId);
   }
 
   @Patch(':id/pay')

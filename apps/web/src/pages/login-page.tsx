@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Activity, Loader2 } from 'lucide-react';
+import { Activity, Loader2, Heart, Shield, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { LanguageSwitcher } from '@/components/shared/language-switcher';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,108 +22,131 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      toast.success('Welcome back!');
+      toast.success(t('auth.welcomeBackToast'));
       navigate('/dashboard');
     } catch {
-      toast.error('Invalid email or password');
+      toast.error(t('auth.invalidCredentials'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-teal-500 to-cyan-400 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.15),transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.1),transparent)]" />
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex items-center justify-center size-14 rounded-2xl bg-white/20 backdrop-blur-sm">
-              <Activity className="size-8" />
+    <div className="min-h-screen flex bg-background">
+      {/* Left Hero Panel */}
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden bg-gradient-to-br from-[oklch(0.45_0.18_175)] via-[oklch(0.50_0.16_170)] to-[oklch(0.42_0.14_180)]">
+        {/* Decorative circles */}
+        <div className="absolute -top-32 -left-32 size-96 rounded-full bg-white/5" />
+        <div className="absolute -bottom-20 -right-20 size-80 rounded-full bg-white/5" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full bg-white/[0.03]" />
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full text-white">
+          {/* Top: Logo */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center size-12 rounded-2xl bg-white/15 backdrop-blur-sm">
+              <Activity className="size-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">SofOmar Clinic</h1>
-              <p className="text-white/70 text-sm uppercase tracking-widest">Management System</p>
+              <h1 className="text-xl font-bold tracking-tight">{t('app.name')}</h1>
+              <p className="text-white/50 text-[10px] uppercase tracking-[0.2em]">{t('app.tagline')}</p>
             </div>
           </div>
-          <h2 className="text-5xl font-bold leading-tight mb-4">
-            Modern Healthcare<br />Management
-          </h2>
-          <p className="text-xl text-white/80 max-w-md">
-            Streamline your clinic operations with real-time queue management,
-            digital prescriptions, and role-based access control.
-          </p>
-          <div className="mt-12 grid grid-cols-3 gap-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <p className="text-2xl font-bold">6</p>
-              <p className="text-white/70 text-sm">User Roles</p>
+
+          {/* Center: Headline */}
+          <div className="max-w-lg">
+            <h2 className="text-[2.75rem] font-bold leading-[1.1] tracking-tight mb-5">
+              {t('auth.heroTitle')}<br />
+              <span className="text-white/60">{t('auth.heroSubtitle')}</span>
+            </h2>
+            <p className="text-lg text-white/60 leading-relaxed">
+              {t('auth.heroDescription')}
+            </p>
+          </div>
+
+          {/* Bottom: Feature pills */}
+          <div className="flex gap-3">
+            <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2.5">
+              <Heart className="size-4 text-pink-300" />
+              <span className="text-sm font-medium text-white/80">{t('auth.featurePatientCentered')}</span>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <p className="text-2xl font-bold">Real-time</p>
-              <p className="text-white/70 text-sm">Queue Updates</p>
+            <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2.5">
+              <Shield className="size-4 text-emerald-300" />
+              <span className="text-sm font-medium text-white/80">{t('auth.featureSecure')}</span>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <p className="text-2xl font-bold">E-Prescription</p>
-              <p className="text-white/70 text-sm">PDF Generation</p>
+            <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2.5">
+              <Zap className="size-4 text-amber-300" />
+              <span className="text-sm font-medium text-white/80">{t('auth.featureRealTimeQueue')}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-sm">
-          <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <div className="flex items-center justify-center size-10 rounded-xl bg-primary text-primary-foreground">
+      {/* Right Form Panel */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-[380px]">
+          <div className="flex justify-end mb-4">
+            <LanguageSwitcher />
+          </div>
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2.5 mb-10 lg:hidden">
+            <div className="flex items-center justify-center size-11 rounded-2xl bg-primary text-primary-foreground">
               <Activity className="size-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">SofOmar Clinic</h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Management System</p>
+              <h1 className="text-lg font-bold tracking-tight">{t('app.name')}</h1>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">{t('app.tagline')}</p>
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold tracking-tight mb-1">Welcome back</h2>
-          <p className="text-sm text-muted-foreground mb-8">Sign in to your account to continue</p>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold tracking-tight mb-1.5">{t('auth.welcomeBack')}</h2>
+            <p className="text-sm text-muted-foreground">{t('auth.signInToAccess')}</p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@clinic.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-11"
+                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium">{t('auth.password')}</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="h-11"
+                className="h-11 rounded-xl"
               />
             </div>
-            <Button type="submit" className="w-full h-11 text-sm font-semibold" disabled={loading}>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 rounded-full text-sm font-semibold tracking-wide uppercase"
+            >
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin mr-2" />
-                  Signing in...
+                  {t('auth.signingIn')}
                 </>
               ) : (
-                'Sign in'
+                t('auth.signIn')
               )}
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-muted-foreground">
-            SofOmar Tech Clinic Management System
+          <p className="mt-10 text-center text-xs text-muted-foreground/60">
+            {t('auth.footer')}
           </p>
         </div>
       </div>

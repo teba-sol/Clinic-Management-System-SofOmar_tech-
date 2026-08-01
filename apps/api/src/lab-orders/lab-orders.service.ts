@@ -11,13 +11,16 @@ export class LabOrdersService {
     const [order] = await db
       .insert(labOrders)
       .values({
-        visitId: dto.visitId,
         patientId: dto.patientId,
         orderedByDoctorId: dto.orderedByDoctorId,
         testType: dto.testType,
       })
       .returning();
     return order;
+  }
+
+  async findAll() {
+    return db.select().from(labOrders);
   }
 
   async findPending() {

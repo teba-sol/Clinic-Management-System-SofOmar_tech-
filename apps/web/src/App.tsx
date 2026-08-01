@@ -2,7 +2,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/context/auth-context';
+import { PatientProvider } from '@/context/patient-context';
 import { AppLayout } from '@/components/layout/app-layout';
+import HomePage from '@/pages/home-page';
 import LoginPage from '@/pages/login-page';
 import DashboardPage from '@/pages/dashboard-page';
 import PatientsListPage from '@/pages/patients/patients-list-page';
@@ -15,6 +17,12 @@ import PrescriptionsPage from '@/pages/prescriptions/prescriptions-page';
 import LabOrdersPage from '@/pages/lab-orders/lab-orders-page';
 import InvoicesPage from '@/pages/invoices/invoices-page';
 import UsersPage from '@/pages/users/users-page';
+import ServicesPage from '@/pages/services/services-page';
+import DoctorDashboardPage from '@/pages/doctor/doctor-dashboard-page';
+import PatientWorkspacePage from '@/pages/doctor/patient-workspace-page';
+import QueueDisplayPage from '@/pages/queue-display/queue-display-page';
+import BookingPage from '@/pages/booking/booking-page';
+import AnalyticsPage from '@/pages/analytics/analytics-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,23 +40,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
-  return <>{children}</>;
-}
-
 function AppRoutes() {
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        }
-      />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/queue-display" element={<QueueDisplayPage />} />
+      <Route path="/booking" element={<BookingPage />} />
       <Route
         element={
           <ProtectedRoute>
@@ -67,8 +65,13 @@ function AppRoutes() {
         <Route path="/lab-orders" element={<LabOrdersPage />} />
         <Route path="/invoices" element={<InvoicesPage />} />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/doctor" element={<DoctorDashboardPage />} />
+        <Route path="/doctor/workspace/:patientId" element={<PatientWorkspacePage />} />
+        <Route path="/doctor/workspace/:patientId/:appointmentId" element={<PatientWorkspacePage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
@@ -78,7 +81,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <PatientProvider>
+            <AppRoutes />
+          </PatientProvider>
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>
       </BrowserRouter>

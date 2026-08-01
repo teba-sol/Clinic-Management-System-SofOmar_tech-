@@ -18,6 +18,8 @@ export const visits = pgTable('visits', {
   diagnosisCode: text('diagnosis_code'),
   diagnosisDescription: text('diagnosis_description'),
 
+  addendum: text('addendum'),
+
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

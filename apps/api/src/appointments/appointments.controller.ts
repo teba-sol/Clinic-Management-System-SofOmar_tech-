@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -16,9 +17,43 @@ export class AppointmentsController {
     return this.appointmentsService.create(dto);
   }
 
+  @Get()
+  @Roles('admin', 'receptionist', 'doctor', 'nurse')
+  findAll() {
+    return this.appointmentsService.findAll();
+  }
+
+  @Get('patient/:patientId')
+  @Roles('admin', 'receptionist', 'doctor', 'nurse')
+  findByPatient(@Param('patientId') patientId: string) {
+    return this.appointmentsService.findByPatient(patientId);
+  }
+
+  @Get('queue')
+  @Roles('admin', 'receptionist', 'doctor', 'nurse')
+  getQueue() {
+    return this.appointmentsService.getFullQueue();
+  }
+
   @Get('queue/:doctorId')
   @Roles('admin', 'receptionist', 'doctor', 'nurse')
-  getQueue(@Param('doctorId') doctorId: string) {
+  getQueueForDoctor(@Param('doctorId') doctorId: string) {
     return this.appointmentsService.getQueueForDoctor(doctorId);
+  }
+
+  @Get('queue/:doctorId/with-patients')
+  @Roles('admin', 'receptionist', 'doctor', 'nurse')
+  getQueueWithPatients(@Param('doctorId') doctorId: string) {
+    return this.appointmentsService.getQueueWithPatients(doctorId);
+  }
+
+  @Patch(':id/status')
+  @Roles('admin', 'receptionist', 'doctor', 'nurse')
+  updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.appointmentsService.updateStatus(id, status, user?.role);
   }
 }

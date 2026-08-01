@@ -5,7 +5,7 @@ import { users } from './users.schema';
 
 export const prescriptions = pgTable('prescriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  visitId: uuid('visit_id').notNull().references(() => visits.id, { onDelete: 'cascade' }),
+  visitId: uuid('visit_id').references(() => visits.id, { onDelete: 'cascade' }),
   patientId: uuid('patient_id').notNull().references(() => patients.id, { onDelete: 'cascade' }),
   doctorId: uuid('doctor_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
 

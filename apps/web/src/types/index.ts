@@ -39,7 +39,7 @@ export interface DoctorSchedule {
   createdAt: string;
 }
 
-export type AppointmentStatus = 'booked' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show';
+export type AppointmentStatus = 'booked' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'triaged';
 
 export interface Appointment {
   id: string;
@@ -62,6 +62,7 @@ export interface Visit {
   plan?: string;
   diagnosisCode?: string;
   diagnosisDescription?: string;
+  addendum?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,6 +131,16 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface Service {
+  id: string;
+  name: string;
+  category: string;
+  defaultPrice: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CreatePatientDto {
   firstName: string;
   lastName: string;
@@ -169,6 +180,7 @@ export interface CreateVisitDto {
   plan?: string;
   diagnosisCode?: string;
   diagnosisDescription?: string;
+  completeAppointment?: boolean;
 }
 
 export interface CreatePrescriptionDto {
@@ -200,6 +212,55 @@ export interface CreateInvoiceDto {
 export interface PayInvoiceDto {
   amount: number;
   paymentMethod: string;
+}
+
+export interface Vital {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  recordedByNurseId: string;
+  bloodPressure?: string;
+  temperature?: string;
+  pulse?: string;
+  weight?: string;
+  height?: string;
+  bmi?: string;
+  chiefComplaint?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface CreateVitalDto {
+  appointmentId: string;
+  patientId: string;
+  recordedByNurseId: string;
+  bloodPressure?: string;
+  temperature?: string;
+  pulse?: string;
+  weight?: string;
+  height?: string;
+  chiefComplaint?: string;
+  notes?: string;
+}
+
+export interface UpdateVitalDto {
+  bloodPressure?: string;
+  temperature?: string;
+  pulse?: string;
+  weight?: string;
+  height?: string;
+  chiefComplaint?: string;
+  notes?: string;
+}
+
+export interface DiagnosisCode {
+  id: string;
+  code: string;
+  description: string;
+  category?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateUserDto {
