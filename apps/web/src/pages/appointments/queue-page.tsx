@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ClipboardList, Wifi, WifiOff, Users, Stethoscope, ArrowRight, Play, UserCheck, XCircle, Filter } from 'lucide-react';
+import { ClipboardList, Wifi, WifiOff, Users, Stethoscope, ArrowRight, Play, UserCheck, XCircle, Filter, Monitor } from 'lucide-react';
 import type { User, Appointment, Patient } from '@/types';
 
 export default function QueuePage() {
@@ -23,7 +23,6 @@ export default function QueuePage() {
   const queryClient = useQueryClient();
   const { setPatient, setVisit } = usePatientContext();
   const isDoctor = user?.role === 'doctor';
-  const isReceptionistOrNurse = user?.role === 'receptionist' || user?.role === 'nurse';
 
   const [selectedDoctor, setSelectedDoctor] = useState<string>(isDoctor ? (user?.id ?? '') : 'all');
   const filterParam = searchParams.get('filter') || 'all';
@@ -88,7 +87,7 @@ export default function QueuePage() {
     mutationFn: async (appt: Appointment) => {
       const patient = patientMap.get(appt.patientId);
       if (!patient) throw new Error('Patient not found');
-      const [res, _statusRes] = await Promise.all([
+      const [res] = await Promise.all([
         api.post('/visits', {
           appointmentId: appt.id,
           patientId: appt.patientId,
@@ -112,6 +111,14 @@ export default function QueuePage() {
       <PageHeader
         title="Live Queue"
         description={isDoctor ? 'Your patient queue for today' : 'Check in patients and manage the queue'}
+        action={
+          !isDoctor ? (
+            <Button variant="outline" className="gap-2" onClick={() => navigate('/queue-display')}>
+              <Monitor className="size-4" />
+              Open display view
+            </Button>
+          ) : undefined
+        }
       />
 
       {!isDoctor && (

@@ -2,18 +2,19 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/auth-context';
 import { usePatientContext } from '@/context/patient-context';
+import { useOffline } from '@/context/offline-context';
+import { enqueue } from '@/lib/offline-queue';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchSelect } from '@/components/shared/search-select';
-import { LoadingPage } from '@/components/shared/loading-spinner';
-import { EmptyState } from '@/components/shared/empty-state';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LabOrderPatientInfo } from '@/components/shared/lab-order-patient-info';
+import { AdminClinicPerformance } from '@/components/dashboard/admin-clinic-performance';
 import { getGreeting } from '@/lib/utils';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -22,13 +23,44 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription,
 } from '@/components/ui/sheet';
 import {
-  Users, CalendarCheck, FlaskConical, Receipt, Stethoscope,
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from '@/components/ui/select';
+import {
+  Tabs, TabsList, TabsTrigger, TabsContent,
+} from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Users, FlaskConical, Receipt, Stethoscope,
   ClipboardList, TrendingUp, Activity, CalendarPlus, Clock,
-  ArrowRight, Play, UserPlus, Pill, HeartPulse, Thermometer, Package,
-  Weight, Ruler, Phone, Mail, MapPin, AlertTriangle, UserCheck,
+  ArrowRight, Play, UserPlus, Inbox, HeartPulse, Thermometer,
+  Weight, Ruler, Phone, Mail, MapPin, AlertTriangle, Syringe,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Patient, Appointment, LabOrder, Invoice, User, Visit, Vital, CreateVitalDto, UpdateVitalDto } from '@/types';
+import { useTranslation } from 'react-i18next';
+import type { Patient, Appointment, LabOrder, LabOrderStatus, Invoice, User, Visit, Vital, CreateVitalDto, UpdateVitalDto, BookingRequest } from '@/types';
+
+const TIME_OF_DAY_START: Record<string, string> = {
+  morning: '09:00',
+  afternoon: '14:00',
+  evening: '17:00',
+};
+
+const TIME_OF_DAY_LABEL: Record<string, string> = {
+  morning: 'Morning (9:00)',
+  afternoon: 'Afternoon (14:00)',
+  evening: 'Evening (17:00)',
+};
+
+function toLocalDateInput(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function departmentLabel(department: string): string {
+  return department.startsWith('landing.') ? department.replace('landing.', '') : department;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -53,9 +85,9 @@ export default function DashboardPage() {
     enabled: ['doctor', 'nurse', 'admin', 'receptionist'].includes(user.role),
   });
 
-  const { data: pendingLabOrders } = useQuery<LabOrder[]>({
-    queryKey: ['lab-orders-pending'],
-    queryFn: () => api.get('/lab-orders/pending').then((r) => r.data),
+  const { data: labOrders } = useQuery<LabOrder[]>({
+    queryKey: ['lab-orders'],
+    queryFn: () => api.get('/lab-orders').then((r) => r.data).catch(() => []),
     enabled: ['admin', 'lab_tech'].includes(user.role),
   });
 
@@ -85,12 +117,23 @@ export default function DashboardPage() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[oklch(0.55_0.17_175)] via-[oklch(0.50_0.15_175)] to-[oklch(0.48_0.13_180)] p-6 sm:p-8 text-white">
         <div className="absolute -top-16 -right-16 size-64 rounded-full bg-white/5" />
         <div className="absolute -bottom-12 -left-12 size-48 rounded-full bg-white/5" />
-        <div className="relative z-10">
-          <p className="text-white/60 text-sm font-medium mb-1">{today}</p>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1">
-            {greeting()}, {user.name?.split(' ')[0] || 'User'}
-          </h1>
-          <p className="text-white/60 text-sm">Here's what's happening at the clinic today.</p>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <p className="text-white/60 text-sm font-medium mb-1">{today}</p>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-1">
+              {greeting()}, {user.name?.split(' ')[0] || 'User'}
+            </h1>
+            <p className="text-white/60 text-sm">Here's what's happening at the clinic today.</p>
+          </div>
+          {userRole === 'receptionist' && (
+            <Button
+              variant="secondary"
+              className="gap-2 shrink-0"
+              onClick={() => navigate('/patients')}
+            >
+              <UserPlus className="size-4" /> Register Patient
+            </Button>
+          )}
         </div>
       </div>
 
@@ -119,7 +162,7 @@ export default function DashboardPage() {
         />
       )}
       {userRole === 'lab_tech' && (
-        <LabTechDashboard pendingLabOrders={pendingLabOrders || []} />
+        <LabTechDashboard labOrders={labOrders || []} />
       )}
       {userRole === 'cashier' && (
         <CashierDashboard invoices={invoices || []} />
@@ -128,8 +171,7 @@ export default function DashboardPage() {
         <AdminDashboard
           appointments={appointments || []}
           patients={patients || []}
-          pendingLabOrders={pendingLabOrders || []}
-          invoices={invoices || []}
+          pendingLabOrders={labOrders || []}
           doctors={(doctors || []).filter((d) => d.role === 'doctor')}
         />
       )}
@@ -193,8 +235,14 @@ function DoctorDashboard({ appointments, patients, userId, setPatient, setVisit,
   setPatient: (p: Patient | null) => void; setVisit: (v: Visit | null) => void; navigate: (path: string) => void;
 }) {
   const patientMap = new Map(patients.map((p) => [p.id, p]));
-  const pending = appointments.filter((a) => a.status === 'checked_in' || a.status === 'triaged' || a.status === 'booked');
-  const firstPending = pending[0];
+  const { patient: activePatient } = usePatientContext();
+  const ready = appointments
+    .filter((a) => a.status === 'checked_in' || a.status === 'triaged')
+    .sort((a, b) => a.queueNumber - b.queueNumber);
+  const awaitingCheckIn = appointments
+    .filter((a) => a.status === 'booked')
+    .sort((a, b) => a.queueNumber - b.queueNumber);
+  const seenToday = appointments.filter((a) => a.status === 'completed');
 
   const startVisitMutation = useMutation({
     mutationFn: async (appt: Appointment) => {
@@ -211,58 +259,111 @@ function DoctorDashboard({ appointments, patients, userId, setPatient, setVisit,
     onError: () => toast.error('Failed to start visit'),
   });
 
+  const handleReadyPatient = (appt: Appointment) => {
+    if (appt.patientId === activePatient?.id && activePatient) {
+      setPatient(activePatient);
+      navigate(`/doctor/workspace/${activePatient.id}`);
+      return;
+    }
+    startVisitMutation.mutate(appt);
+  };
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="My Queue" value={appointments.length} icon={ClipboardList}
+        <StatCard title="Ready for you" value={ready.length} icon={Play}
           color="bg-gradient-to-br from-blue-500 to-indigo-500"
-          description="Patients waiting today" />
-        <StatCard title="Total Patients" value={patients.length} icon={Users}
-          color="bg-gradient-to-br from-teal-500 to-cyan-500"
-          description="Registered patients" />
-        <StatCard title="Pending" value={pending.length} icon={Clock}
+          description="Checked in & triaged" />
+        <StatCard title="Waiting to arrive" value={awaitingCheckIn.length} icon={Clock}
           color="bg-gradient-to-br from-amber-500 to-orange-500"
-          description="Awaiting consultation" />
+          description="Booked, not checked in" />
+        <StatCard title="Seen today" value={seenToday.length} icon={Activity}
+          color="bg-gradient-to-br from-emerald-500 to-teal-500"
+          description="Completed appointments" />
       </div>
 
-      {firstPending && (
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-background to-primary/5">
-          <CardContent className="py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center size-12 rounded-xl bg-primary text-primary-foreground font-bold text-lg">
-                #{firstPending.queueNumber}
-              </div>
-              <div>
-                <p className="font-semibold">{patientMap.get(firstPending.patientId)?.firstName} {patientMap.get(firstPending.patientId)?.lastName}</p>
-                <p className="text-xs text-muted-foreground">{patientMap.get(firstPending.patientId)?.mrn}</p>
-              </div>
-            </div>
-            <Button size="lg" className="gap-2 px-6" onClick={() => startVisitMutation.mutate(firstPending)}>
-              <Play className="size-4" /> Start Next Patient
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
-        <CardContent className="pt-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
-            <Activity className="size-4 text-primary" /> Quick Actions
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <QuickAction label="My Queue" subtitle="View waiting patients" href="/queue"
-              icon={ClipboardList} color="text-violet-700" bgColor="bg-violet-50 hover:bg-violet-100" />
-            <QuickAction label="My Visits" subtitle="SOAP notes" href="/visits"
-              icon={Stethoscope} color="text-blue-700" bgColor="bg-blue-50 hover:bg-blue-100" />
-            <QuickAction label="Prescriptions" subtitle="Write prescription" href="/prescriptions"
-              icon={Pill} color="text-pink-700" bgColor="bg-pink-50 hover:bg-pink-100" />
-            <QuickAction label="Lab Orders" subtitle="Order tests" href="/lab-orders"
-              icon={FlaskConical} color="text-amber-700" bgColor="bg-amber-50 hover:bg-amber-100" />
-          </div>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Play className="size-4 text-primary" /> Ready for you ({ready.length})
+          </CardTitle>
+          <CardDescription>Patients checked in and waiting for you.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {ready.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">
+              No patients ready yet — checked-in patients will appear here.
+            </p>
+          ) : (
+            ready.map((appt) => {
+              const patient = patientMap.get(appt.patientId);
+              const isActive = appt.patientId === activePatient?.id;
+              return (
+                <div key={appt.id} className="flex items-center justify-between gap-3 rounded-xl border bg-card p-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-center size-10 rounded-lg bg-primary/10 text-primary font-bold shrink-0">
+                      #{appt.queueNumber}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">
+                        {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{patient?.mrn}</p>
+                    </div>
+                  </div>
+                  <Button size="sm" className="gap-1.5 shrink-0" onClick={() => handleReadyPatient(appt)}>
+                    <Play className="size-3.5" />
+                    {isActive ? 'Resume visit' : 'Start visit'}
+                  </Button>
+                </div>
+              );
+            })
+          )}
         </CardContent>
       </Card>
 
-      <QueuePreview appointments={appointments} patientMap={patientMap} />
+      <Card className="border-dashed bg-muted/30">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 text-muted-foreground">
+                <Clock className="size-4" /> Awaiting Check-in ({awaitingCheckIn.length})
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Patients booked but not yet arrived — reception will check them in. Shown for awareness only.
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => navigate('/queue?filter=booked')}>
+              View queue <ArrowRight className="size-3.5" />
+            </Button>
+          </div>
+          {awaitingCheckIn.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No patients booked for today yet.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {awaitingCheckIn.slice(0, 5).map((appt) => {
+                const patient = patientMap.get(appt.patientId);
+                return (
+                  <div key={appt.id} className="flex items-center gap-2 rounded-lg border border-dashed bg-background px-3 py-2 text-sm">
+                    <span className="font-bold text-muted-foreground">#{appt.queueNumber}</span>
+                    <span className="font-medium text-muted-foreground">
+                      {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown'}
+                    </span>
+                    <StatusBadge status="booked">Not checked in</StatusBadge>
+                  </div>
+                );
+              })}
+              {awaitingCheckIn.length > 5 && (
+                <span className="text-xs text-muted-foreground self-center">
+                  +{awaitingCheckIn.length - 5} more
+                </span>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -275,10 +376,9 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
   const queryClient = useQueryClient();
   const [bookPatientId, setBookPatientId] = useState('');
   const [bookDoctorId, setBookDoctorId] = useState('');
-  const [bookScheduledAt, setBookScheduledAt] = useState('');
+  const [bookDate, setBookDate] = useState(() => toLocalDateInput(new Date()));
+  const [bookTimeOfDay, setBookTimeOfDay] = useState('morning');
   const [selectedProfile, setSelectedProfile] = useState<Appointment | null>(null);
-  const [fastCheckinOpen, setFastCheckinOpen] = useState(false);
-  const [fastCheckinPatientId, setFastCheckinPatientId] = useState('');
 
   const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
 
@@ -317,22 +417,16 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
     return [...staticOnly, ...liveList];
   }, [appointments, liveQueues]);
 
-  useEffect(() => {
-    if (!bookScheduledAt) {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      setBookScheduledAt(now.toISOString().slice(0, 16));
-    }
-  }, []);
-
   const bookMutation = useMutation({
-    mutationFn: () => api.post('/appointments', { patientId: bookPatientId, doctorId: bookDoctorId, scheduledAt: bookScheduledAt }),
+    mutationFn: () => api.post('/appointments', {
+      patientId: bookPatientId,
+      doctorId: bookDoctorId,
+      scheduledAt: `${bookDate}T${TIME_OF_DAY_START[bookTimeOfDay]}`,
+    }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['appointments-queue'] });
       const qn = res.data?.queueNumber;
       setBookPatientId(''); setBookDoctorId('');
-      const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      setBookScheduledAt(now.toISOString().slice(0, 16));
       toast.success(qn ? `Appointment booked — Queue #${qn}` : 'Appointment booked');
     },
     onError: () => toast.error('Failed to book appointment'),
@@ -347,11 +441,26 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
     onError: () => toast.error('Failed to check in patient'),
   });
 
+  const { data: bookingRequests } = useQuery<BookingRequest[]>({
+    queryKey: ['booking-requests'],
+    queryFn: () => api.get('/booking/requests').then((r) => r.data).catch(() => []),
+  });
+
   const pendingCount = useMemo(() => liveAppointments.filter((a) => a.status === 'booked').length, [liveAppointments]);
 
-  const bookedAppointments = useMemo(() =>
+  const awaitingCheckIn = useMemo(() =>
     liveAppointments.filter((a) => a.status === 'booked').sort((a, b) => a.queueNumber - b.queueNumber),
     [liveAppointments],
+  );
+
+  const checkedInOthers = useMemo(() =>
+    liveAppointments.filter((a) => a.status !== 'booked').sort((a, b) => a.queueNumber - b.queueNumber),
+    [liveAppointments],
+  );
+
+  const pendingRequests = useMemo(
+    () => (bookingRequests || []).filter((r) => r.status === 'pending'),
+    [bookingRequests],
   );
 
   const profilePatient = selectedProfile ? patientMap.get(selectedProfile.patientId) : null;
@@ -359,17 +468,60 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
   return (
     <>
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Today's Queue" value={liveAppointments.length} icon={ClipboardList}
           color="bg-gradient-to-br from-blue-500 to-indigo-500" description="Total appointments"
           onClick={() => navigate('/queue')} />
-        <StatCard title="Total Patients" value={patients.length} icon={Users}
-          color="bg-gradient-to-br from-teal-500 to-cyan-500" description="Registered patients"
-          onClick={() => navigate('/patients')} />
         <StatCard title="Pending" value={pendingCount} icon={Clock}
           color="bg-gradient-to-br from-amber-500 to-orange-500" description="Awaiting check-in"
           onClick={() => navigate('/queue?filter=booked')} />
+        <StatCard title="Booking Requests" value={pendingRequests.length} icon={Inbox}
+          color="bg-gradient-to-br from-violet-500 to-purple-500" description="Pending online bookings"
+          onClick={() => navigate('/booking-requests')} />
+        <StatCard title="Total Patients" value={patients.length} icon={Users}
+          color="bg-gradient-to-br from-teal-500 to-cyan-500" description="Registered patients"
+          onClick={() => navigate('/patients')} />
       </div>
+
+      {/* Pending Booking Requests attention panel */}
+      {pendingRequests.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="flex items-center justify-center size-9 rounded-lg bg-amber-100 text-amber-700 shrink-0">
+                  <Inbox className="size-4" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">
+                    Pending Booking Requests ({pendingRequests.length})
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Online booking requests waiting for you to contact and convert into appointments.
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" className="gap-1.5 shrink-0" onClick={() => navigate('/booking-requests')}>
+                Review requests <ArrowRight className="size-3.5" />
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {pendingRequests.slice(0, 4).map((r) => (
+                <div key={r.id} className="flex items-center gap-2 rounded-lg border border-amber-200 bg-background px-3 py-1.5 text-sm">
+                  <span className="font-medium">{r.name}</span>
+                  <span className="text-xs text-muted-foreground">{departmentLabel(r.department)}</span>
+                  <StatusBadge status="pending">Pending</StatusBadge>
+                </div>
+              ))}
+              {pendingRequests.length > 4 && (
+                <span className="text-xs text-muted-foreground self-center">
+                  +{pendingRequests.length - 4} more
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Book */}
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-background to-primary/5">
@@ -380,27 +532,40 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
             </div>
             <h3 className="font-semibold text-sm">Quick Book Appointment</h3>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); bookMutation.mutate(); }} className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 space-y-1.5">
+          <form onSubmit={(e) => { e.preventDefault(); bookMutation.mutate(); }} className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="flex-1 min-w-[170px] space-y-1.5">
               <Label className="text-xs text-muted-foreground">Patient</Label>
               <SearchSelect
                 items={patients.map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName}`, subtitle: p.mrn }))}
                 value={bookPatientId} onValueChange={setBookPatientId} placeholder="Select patient"
               />
             </div>
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 min-w-[170px] space-y-1.5">
               <Label className="text-xs text-muted-foreground">Doctor</Label>
               <SearchSelect
                 items={doctors.map((d) => ({ value: d.id, label: `Dr. ${d.name}`, subtitle: (d as any).specialty || 'General Practitioner' }))}
                 value={bookDoctorId} onValueChange={setBookDoctorId} placeholder="Select doctor"
               />
             </div>
-            <div className="flex-1 space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Date & Time</Label>
-              <Input type="datetime-local" value={bookScheduledAt} onChange={(e) => setBookScheduledAt(e.target.value)} className="h-9" />
+            <div className="flex-1 min-w-[150px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Date</Label>
+              <Input type="date" min={toLocalDateInput(new Date())} value={bookDate} onChange={(e) => setBookDate(e.target.value)} className="h-9" />
+            </div>
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Time of day</Label>
+              <Select value={bookTimeOfDay} onValueChange={(v) => v && setBookTimeOfDay(v)}>
+                <SelectTrigger className="h-9 w-full" aria-label="Time of day">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(['morning', 'afternoon', 'evening'] as const).map((t) => (
+                    <SelectItem key={t} value={t}>{TIME_OF_DAY_LABEL[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-end">
-              <Button type="submit" disabled={bookMutation.isPending || !bookPatientId || !bookDoctorId || !bookScheduledAt}
+              <Button type="submit" disabled={bookMutation.isPending || !bookPatientId || !bookDoctorId || !bookDate}
                 className="w-full sm:w-auto h-9 rounded-xl px-6">
                 {bookMutation.isPending ? 'Booking...' : 'Book Now'}
               </Button>
@@ -429,65 +594,93 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
               <p className="text-sm text-muted-foreground">No appointments today</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {liveAppointments.sort((a, b) => a.queueNumber - b.queueNumber).slice(0, 6).map((appt) => {
-                const patient = patientMap.get(appt.patientId);
-                return (
-                  <div
-                    key={appt.id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer"
-                    onClick={() => setSelectedProfile(appt)}
-                  >
-                    <div className="flex items-center justify-center size-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shrink-0">
-                      #{appt.queueNumber}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">
-                        {patient ? `${patient.firstName} ${patient.lastName}` : `Queue #${appt.queueNumber}`}
+            <div className="space-y-4">
+              {awaitingCheckIn.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                    Awaiting check-in ({awaitingCheckIn.length})
+                  </p>
+                  <div className="space-y-2">
+                    {awaitingCheckIn.map((appt) => {
+                      const patient = patientMap.get(appt.patientId);
+                      return (
+                        <div
+                          key={appt.id}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors cursor-pointer"
+                          onClick={() => setSelectedProfile(appt)}
+                        >
+                          <div className="flex items-center justify-center size-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shrink-0">
+                            #{appt.queueNumber}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {patient ? `${patient.firstName} ${patient.lastName}` : `Queue #${appt.queueNumber}`}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                              {patient && <span className="font-mono">{patient.mrn}</span>}
+                              {patient && <span>·</span>}
+                              <Clock className="size-3" />
+                              {new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <StatusBadge status="booked">Not checked in</StatusBadge>
+                          <Button
+                            size="sm"
+                            className="shrink-0"
+                            onClick={(e) => { e.stopPropagation(); checkInMutation.mutate(appt.id); }}
+                            disabled={checkInMutation.isPending}
+                          >
+                            Check In
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {checkedInOthers.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                    Checked in / in progress ({checkedInOthers.length})
+                  </p>
+                  <div className="space-y-2">
+                    {checkedInOthers.slice(0, 4).map((appt) => {
+                      const patient = patientMap.get(appt.patientId);
+                      return (
+                        <div
+                          key={appt.id}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
+                          onClick={() => setSelectedProfile(appt)}
+                        >
+                          <div className="flex items-center justify-center size-10 rounded-xl bg-muted-foreground/10 text-muted-foreground font-bold text-sm shrink-0">
+                            #{appt.queueNumber}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">
+                              {patient ? `${patient.firstName} ${patient.lastName}` : `Queue #${appt.queueNumber}`}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                              {patient && <span className="font-mono">{patient.mrn}</span>}
+                              {patient && <span>·</span>}
+                              <Clock className="size-3" />
+                              {new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          <StatusBadge status={appt.status} />
+                        </div>
+                      );
+                    })}
+                    {checkedInOthers.length > 4 && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        +{checkedInOthers.length - 4} more checked in
                       </p>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                        {patient && <span className="font-mono">{patient.mrn}</span>}
-                        {patient && <span>·</span>}
-                        <Clock className="size-3" />
-                        {new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                    <StatusBadge status={appt.status} />
-                    {appt.status === 'booked' && (
-                      <Button
-                        size="sm"
-                        className="shrink-0"
-                        onClick={(e) => { e.stopPropagation(); checkInMutation.mutate(appt.id); }}
-                        disabled={checkInMutation.isPending}
-                      >
-                        Check In
-                      </Button>
                     )}
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardContent className="pt-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
-            <Activity className="size-4 text-primary" /> Quick Actions
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-            <QuickAction label="Register Patient" subtitle="New patient record" href="/patients"
-              icon={UserPlus} color="text-teal-700" bgColor="bg-teal-50 hover:bg-teal-100" />
-            <QuickAction label="Book Appointment" subtitle="Schedule visit" href="/appointments"
-              icon={CalendarCheck} color="text-blue-700" bgColor="bg-blue-50 hover:bg-blue-100" />
-            <QuickAction label="Check In Patient" subtitle="Fast check-in" href="#"
-              icon={UserCheck} color="text-green-700" bgColor="bg-green-50 hover:bg-green-100"
-              onClick={() => setFastCheckinOpen(true)} />
-            <QuickAction label="View Queue" subtitle="Patient flow" href="/queue"
-              icon={ClipboardList} color="text-violet-700" bgColor="bg-violet-50 hover:bg-violet-100" />
-          </div>
         </CardContent>
       </Card>
 
@@ -545,42 +738,6 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Fast Check-in Dialog */}
-      <Dialog open={fastCheckinOpen} onOpenChange={setFastCheckinOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Fast Check-in</DialogTitle>
-            <DialogDescription>Select a patient to check in immediately</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Patient</Label>
-              <SearchSelect
-                items={bookedAppointments.map((a) => {
-                  const p = patientMap.get(a.patientId);
-                  return { value: a.id, label: p ? `${p.firstName} ${p.lastName}` : 'Unknown', subtitle: p?.mrn };
-                })}
-                value={fastCheckinPatientId} onValueChange={setFastCheckinPatientId}
-                placeholder="Select booked patient"
-              />
-            </div>
-            <Button
-              className="w-full"
-              disabled={!fastCheckinPatientId || checkInMutation.isPending}
-              onClick={() => {
-                if (fastCheckinPatientId) {
-                  checkInMutation.mutate(fastCheckinPatientId, {
-                    onSuccess: () => { setFastCheckinOpen(false); setFastCheckinPatientId(''); },
-                  });
-                }
-              }}
-            >
-              {checkInMutation.isPending ? 'Checking in...' : 'Check In'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -590,6 +747,7 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { setPatient } = usePatientContext();
+  const { isOnline, lastSyncAt, refreshPendingCount } = useOffline();
   const [triagePatient, setTriagePatient] = useState<Appointment | null>(null);
   const [vitalsForm, setVitalsForm] = useState({ bp: '', temp: '', pulse: '', weight: '', height: '', complaint: '' });
   const [existingVitalsRecord, setExistingVitalsRecord] = useState<Vital | null>(null);
@@ -656,32 +814,66 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
     setVitalsForm({ bp: '', temp: '', pulse: '', weight: '', height: '', complaint: '' });
   };
 
-  const submitTriage = () => {
+  useEffect(() => {
+    if (lastSyncAt) {
+      queryClient.invalidateQueries({ queryKey: ['appointments-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['vitals'] });
+    }
+  }, [lastSyncAt, queryClient]);
+
+  const submitTriage = async () => {
     if (!triagePatient || !user) return;
+
+    const payload = {
+      bloodPressure: vitalsForm.bp || undefined,
+      temperature: vitalsForm.temp || undefined,
+      pulse: vitalsForm.pulse || undefined,
+      weight: vitalsForm.weight || undefined,
+      height: vitalsForm.height || undefined,
+      chiefComplaint: vitalsForm.complaint || undefined,
+    };
+
+    if (!isOnline) {
+      if (existingVitalsRecord) {
+        await enqueue({
+          id: crypto.randomUUID(),
+          type: 'vital-update',
+          method: 'PATCH',
+          url: `/vitals/${existingVitalsRecord.id}`,
+          payload,
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        await enqueue({
+          id: crypto.randomUUID(),
+          type: 'vital-create',
+          method: 'POST',
+          url: '/vitals',
+          payload: {
+            appointmentId: triagePatient.id,
+            patientId: triagePatient.patientId,
+            recordedByNurseId: user.id,
+            ...payload,
+          },
+          createdAt: new Date().toISOString(),
+        });
+      }
+      await refreshPendingCount();
+      toast.info('Vitals saved offline — will sync automatically when you reconnect');
+      return;
+    }
 
     if (existingVitalsRecord) {
       updateVitalsMutation.mutate({
         id: existingVitalsRecord.id,
-        data: {
-          bloodPressure: vitalsForm.bp || undefined,
-          temperature: vitalsForm.temp || undefined,
-          pulse: vitalsForm.pulse || undefined,
-          weight: vitalsForm.weight || undefined,
-          height: vitalsForm.height || undefined,
-          chiefComplaint: vitalsForm.complaint || undefined,
-        },
+        data: payload,
       });
     } else {
       createVitalsMutation.mutate({
         appointmentId: triagePatient.id,
         patientId: triagePatient.patientId,
         recordedByNurseId: user.id,
-        bloodPressure: vitalsForm.bp || undefined,
-        temperature: vitalsForm.temp || undefined,
-        pulse: vitalsForm.pulse || undefined,
-        weight: vitalsForm.weight || undefined,
-        height: vitalsForm.height || undefined,
-        chiefComplaint: vitalsForm.complaint || undefined,
+        ...payload,
       });
     }
   };
@@ -700,30 +892,17 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
           color="bg-gradient-to-br from-violet-500 to-purple-500" description="In consultation" />
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardContent className="pt-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
-            <Activity className="size-4 text-primary" /> Quick Actions
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <QuickAction label="Register Patient" subtitle="New patient record" href="/patients"
-              icon={UserPlus} color="text-teal-700" bgColor="bg-teal-50 hover:bg-teal-100" />
-            <QuickAction label="View Queue" subtitle="Full patient queue" href="/queue"
-              icon={ClipboardList} color="text-violet-700" bgColor="bg-violet-50 hover:bg-violet-100" />
-            <QuickAction label="Visit Records" subtitle="Past triage notes" href="/visits"
-              icon={Stethoscope} color="text-blue-700" bgColor="bg-blue-50 hover:bg-blue-100" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Checked In (Ready for Triage) Section */}
+      {/* Needs Vitals (Ready for Triage) Section */}
       {checkedIn.length > 0 && (
         <Card>
           <CardContent className="pt-5">
-            <h3 className="font-semibold flex items-center gap-2 mb-3 text-blue-600">
-              <HeartPulse className="size-4" /> Checked In — Record Vitals ({checkedIn.length})
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <HeartPulse className="size-4 text-blue-600" />
+              <h3 className="font-semibold text-blue-600">Needs Vitals ({checkedIn.length})</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Patients checked in and ready for you to record vitals — your next action.
+            </p>
             <div className="space-y-2">
               {checkedIn.slice(0, 10).map((appt) => {
                 const p = patientMap.get(appt.patientId);
@@ -757,10 +936,13 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
               <Activity className="size-4" /> Triaged — Awaiting Doctor ({triaged.length})
             </h3>
             <div className="space-y-2">
-              {triaged.slice(0, 10).map((appt) => {
+              {[...triaged]
+                .sort((a, b) => Number(b.returnedForRecheck) - Number(a.returnedForRecheck) || a.queueNumber - b.queueNumber)
+                .slice(0, 10)
+                .map((appt) => {
                 const p = patientMap.get(appt.patientId);
                 return (
-                  <div key={appt.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
+                  <div key={appt.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span className="text-sm font-bold text-muted-foreground shrink-0">#{appt.queueNumber}</span>
                       <div className="min-w-0">
@@ -770,6 +952,11 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                         </p>
                       </div>
                     </div>
+                    {appt.returnedForRecheck && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 shrink-0">
+                        <AlertTriangle className="size-3" /> Returned by doctor
+                      </span>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => openTriage(appt)} className="shrink-0">
                       View / Edit Vitals
                     </Button>
@@ -781,8 +968,58 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
         </Card>
       )}
 
-      {/* Queue Preview */}
-      <QueuePreview appointments={appointments} patientMap={patientMap} />
+      {/* Today's Queue — full-day, all-statuses overview */}
+      <Card>
+        <CardContent className="pt-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="size-4 text-primary" />
+              <h3 className="font-semibold">Today's Queue ({appointments.length})</h3>
+            </div>
+            <span className="text-xs text-muted-foreground">Full-day overview · all statuses</span>
+          </div>
+          {appointments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No appointments today</p>
+          ) : (
+            <div className="divide-y rounded-xl border">
+              {[...appointments].sort((a, b) => a.queueNumber - b.queueNumber).slice(0, 12).map((appt) => {
+                const p = patientMap.get(appt.patientId);
+                return (
+                  <div key={appt.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <span className="w-8 shrink-0 font-bold text-muted-foreground">#{appt.queueNumber}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{p ? `${p.firstName} ${p.lastName}` : 'Unknown'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{p?.mrn}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <StatusBadge status={appt.status} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {appointments.length > 12 && (
+            <a href="/queue" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+              View full queue ({appointments.length}) <ArrowRight className="size-3" />
+            </a>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardContent className="pt-5">
+          <h3 className="font-semibold flex items-center gap-2 mb-3">
+            <Activity className="size-4 text-primary" /> Quick Actions
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <QuickAction label="Visit Records" subtitle="Past triage notes" href="/visits"
+              icon={Stethoscope} color="text-blue-700" bgColor="bg-blue-50 hover:bg-blue-100" />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Triage / Vitals Sheet */}
       <Sheet open={!!triagePatient} onOpenChange={(v) => { if (!v) closeTriage(); }}>
@@ -863,45 +1100,174 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
 }
 
 /* ─── LAB TECH DASHBOARD ─── */
-function LabTechDashboard({ pendingLabOrders }: { pendingLabOrders: LabOrder[] }) {
+const LAB_STATUS_TABS: { value: LabOrderStatus; label: string; icon: React.ElementType }[] = [
+  { value: 'ordered', label: 'Ordered', icon: Clock },
+  { value: 'sample_collected', label: 'Sample Collected', icon: HeartPulse },
+  { value: 'in_progress', label: 'In Progress', icon: FlaskConical },
+  { value: 'completed', label: 'Completed', icon: ClipboardList },
+];
+
+function LabTechDashboard({ labOrders }: { labOrders: LabOrder[] }) {
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<LabOrderStatus>('ordered');
+  const [resultOrder, setResultOrder] = useState<LabOrder | null>(null);
+  const [resultText, setResultText] = useState('');
+  const [resultStatus, setResultStatus] = useState<LabOrderStatus>('completed');
+
+  const groups = useMemo(() => {
+    const map: Record<LabOrderStatus, LabOrder[]> = {
+      ordered: [], sample_collected: [], in_progress: [], completed: [], cancelled: [],
+    };
+    for (const o of labOrders) {
+      if (map[o.status]) map[o.status].push(o);
+    }
+    return map;
+  }, [labOrders]);
+
+  const collectMutation = useMutation({
+    mutationFn: (id: string) => api.patch(`/lab-orders/${id}`, { status: 'sample_collected' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lab-orders'] });
+      toast.success('Sample collected');
+    },
+    onError: () => toast.error('Failed to update lab order'),
+  });
+
+  const resultMutation = useMutation({
+    mutationFn: ({ id, resultText, status }: { id: string; resultText: string; status: LabOrderStatus }) =>
+      api.patch(`/lab-orders/${id}`, { resultText, status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lab-orders'] });
+      setResultOrder(null);
+      setResultText('');
+      setResultStatus('completed');
+      toast.success('Results saved');
+    },
+    onError: () => toast.error('Failed to save results'),
+  });
+
+  const openResults = (o: LabOrder) => {
+    setResultOrder(o);
+    setResultText(o.resultText || '');
+    setResultStatus('completed');
+  };
+
+  const pendingCount = groups.ordered.length + groups.sample_collected.length + groups.in_progress.length;
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard title="Pending Tests" value={pendingLabOrders.length} icon={FlaskConical}
+        <StatCard title="Pending Tests" value={pendingCount} icon={FlaskConical}
           color="bg-gradient-to-br from-amber-500 to-orange-500" description="Awaiting processing" />
       </div>
+
       <Card>
         <CardContent className="pt-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
-            <Activity className="size-4 text-primary" /> Quick Actions
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <QuickAction label="Lab Orders" subtitle="Process tests" href="/lab-orders"
-              icon={FlaskConical} color="text-amber-700" bgColor="bg-amber-50 hover:bg-amber-100" />
-          </div>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as LabOrderStatus)}>
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4">
+              {LAB_STATUS_TABS.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <TabsTrigger key={t.value} value={t.value}>
+                    <Icon className="size-3.5 mr-1.5" />
+                    {t.label} ({groups[t.value].length})
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            {LAB_STATUS_TABS.map((t) => (
+              <TabsContent key={t.value} value={t.value} className="mt-4 space-y-2">
+                {groups[t.value].length === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    No {t.label.toLowerCase()} tests
+                  </div>
+                ) : (
+                  groups[t.value].slice(0, 12).map((o) => (
+                    <div key={o.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{o.testType}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(o.createdAt).toLocaleDateString()}
+                        </p>
+                        <LabOrderPatientInfo order={o} />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge status={o.status} />
+                        {o.status === 'ordered' && (
+                          <Button size="sm" variant="outline"
+                            disabled={collectMutation.isPending}
+                            onClick={() => collectMutation.mutate(o.id)} className="gap-1.5">
+                            <Syringe className="size-3.5" /> Collect sample
+                          </Button>
+                        )}
+                        {(o.status === 'sample_collected' || o.status === 'in_progress') && (
+                          <Button size="sm" variant="outline" onClick={() => openResults(o)} className="gap-1.5">
+                            <ClipboardList className="size-3.5" /> Enter results
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
         </CardContent>
       </Card>
 
-      {pendingLabOrders.length > 0 && (
-        <Card>
-          <CardContent className="pt-5">
-            <h3 className="font-semibold flex items-center gap-2 mb-3">
-              <FlaskConical className="size-4 text-amber-500" /> Pending Lab Orders
-            </h3>
-            <div className="space-y-2">
-              {pendingLabOrders.slice(0, 10).map((o) => (
-                <div key={o.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
-                  <div>
-                    <p className="text-sm font-medium">{o.testType}</p>
-                    <p className="text-xs text-muted-foreground">{new Date(o.createdAt).toLocaleDateString()}</p>
-                  </div>
-                  <StatusBadge status={o.status} />
-                </div>
-              ))}
+      <Dialog open={!!resultOrder} onOpenChange={(o) => !o && setResultOrder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter Results</DialogTitle>
+            <DialogDescription>
+              {resultOrder?.testType}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (resultOrder) {
+                resultMutation.mutate({
+                  id: resultOrder.id,
+                  resultText,
+                  status: resultStatus,
+                });
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-1.5">
+              <Label>Result</Label>
+              <Textarea
+                rows={4}
+                value={resultText}
+                onChange={(e) => setResultText(e.target.value)}
+                placeholder="Enter test results..."
+                required
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={resultStatus} onValueChange={(v) => setResultStatus(v as LabOrderStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="pt-2 gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setResultOrder(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={resultMutation.isPending || !resultText.trim()}>
+                {resultMutation.isPending ? 'Saving...' : 'Save Results'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -954,92 +1320,69 @@ function CashierDashboard({ invoices }: { invoices: Invoice[] }) {
 }
 
 /* ─── ADMIN DASHBOARD ─── */
-function AdminDashboard({ appointments, patients, pendingLabOrders, invoices, doctors }: {
-  appointments: Appointment[]; patients: Patient[]; pendingLabOrders: LabOrder[]; invoices: Invoice[]; doctors: User[];
+function AdminDashboard({ appointments, patients, pendingLabOrders, doctors }: {
+  appointments: Appointment[]; patients: Patient[]; pendingLabOrders: LabOrder[]; doctors: User[];
 }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const { data: bookingRequests } = useQuery<BookingRequest[]>({
+    queryKey: ['booking-requests'],
+    queryFn: () => api.get('/booking/requests').then((r) => r.data).catch(() => []),
+  });
+
+  const pendingRequests = (bookingRequests || []).filter((r) => r.status === 'pending');
+  const pendingLabCount = pendingLabOrders.filter((o) => o.status === 'ordered' || o.status === 'sample_collected').length;
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Patients" value={patients.length} icon={Users}
-          color="bg-gradient-to-br from-teal-500 to-cyan-500" />
+          color="bg-gradient-to-br from-teal-500 to-cyan-500"
+          onClick={() => navigate('/patients')} />
         <StatCard title="Today's Queue" value={appointments.length} icon={ClipboardList}
-          color="bg-gradient-to-br from-blue-500 to-indigo-500" />
-        <StatCard title="Pending Lab Orders" value={pendingLabOrders.length} icon={FlaskConical}
-          color="bg-gradient-to-br from-amber-500 to-orange-500" />
+          color="bg-gradient-to-br from-blue-500 to-indigo-500"
+          onClick={() => navigate('/queue')} />
+        <StatCard title="Pending Lab Orders" value={pendingLabCount} icon={FlaskConical}
+          color="bg-gradient-to-br from-amber-500 to-orange-500"
+          onClick={() => navigate('/lab-orders?filter=pending')} />
         <StatCard title="Doctors" value={doctors.length} icon={Stethoscope}
-          color="bg-gradient-to-br from-pink-500 to-rose-500" />
+          color="bg-gradient-to-br from-pink-500 to-rose-500"
+          onClick={() => navigate('/users?role=doctor')} />
       </div>
-      <Card>
-        <CardContent className="pt-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-3">
-            <Activity className="size-4 text-primary" /> Quick Actions
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <QuickAction label="Patients" subtitle="Manage records" href="/patients"
-              icon={Users} color="text-teal-700" bgColor="bg-teal-50 hover:bg-teal-100" />
-            <QuickAction label="Appointments" subtitle="Schedule" href="/appointments"
-              icon={CalendarCheck} color="text-blue-700" bgColor="bg-blue-50 hover:bg-blue-100" />
-            <QuickAction label="Users" subtitle="Manage staff" href="/users"
-              icon={UserPlus} color="text-purple-700" bgColor="bg-purple-50 hover:bg-purple-100" />
-            <QuickAction label="Schedules" subtitle="Doctor availability" href="/schedules"
-              icon={Stethoscope} color="text-pink-700" bgColor="bg-pink-50 hover:bg-pink-100" />
-            <QuickAction label="Lab Orders" subtitle="View all" href="/lab-orders"
-              icon={FlaskConical} color="text-amber-700" bgColor="bg-amber-50 hover:bg-amber-100" />
-            <QuickAction label="Invoices" subtitle="Financial" href="/invoices"
-              icon={Receipt} color="text-emerald-700" bgColor="bg-emerald-50 hover:bg-emerald-100" />
-            <QuickAction label="Services" subtitle="Fee schedule" href="/services"
-              icon={Package} color="text-orange-700" bgColor="bg-orange-50 hover:bg-orange-100" />
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
-}
 
-/* ─── QUEUE PREVIEW (shared) ─── */
-function QueuePreview({ appointments, patientMap }: {
-  appointments: Appointment[]; patientMap: Map<string, Patient>;
-}) {
-  if (!appointments || appointments.length === 0) return null;
-  return (
-    <Card>
-      <CardContent className="pt-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="size-4 text-primary" />
-            <h3 className="font-semibold">Today's Queue</h3>
-          </div>
-          {appointments.length > 6 && (
-            <a href="/queue" className="text-xs text-primary hover:underline font-medium flex items-center gap-1">
-              View all <ArrowRight className="size-3" />
-            </a>
-          )}
-        </div>
-        <div className="space-y-2">
-          {appointments.slice(0, 6).map((appt) => {
-            const patient = patientMap.get(appt.patientId);
-            return (
-              <div key={appt.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors">
-                <div className="flex items-center justify-center size-10 rounded-xl bg-primary text-primary-foreground font-bold text-sm shrink-0">
-                  #{appt.queueNumber}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">
-                    {patient ? `${patient.firstName} ${patient.lastName}` : `Queue #${appt.queueNumber}`}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                    {patient && <span className="font-mono">{patient.mrn}</span>}
-                    {patient && <span>·</span>}
-                    <Clock className="size-3" />
-                    {new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-                <StatusBadge status={appt.status} />
+      {pendingRequests.length > 0 && (
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <CalendarPlus className="size-4 text-primary" />
+                <h3 className="font-semibold">Pending Booking Requests</h3>
               </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                {pendingRequests.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {pendingRequests.slice(0, 5).map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
+                  <div>
+                    <p className="text-sm font-medium">{req.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t(req.department)} · {new Date(req.preferredDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => navigate('/booking-requests')} className="gap-1.5">
+                    Review <ArrowRight className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <AdminClinicPerformance />
+    </>
   );
 }

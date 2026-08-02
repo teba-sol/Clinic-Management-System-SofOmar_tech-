@@ -166,9 +166,14 @@ export class AppointmentsService {
       }
     }
 
+    const updateData: Record<string, unknown> = { status: status as any };
+    if (existing.status === 'in_progress' && status === 'triaged') {
+      updateData.returnedForRecheck = true;
+    }
+
     const [appointment] = await db
       .update(appointments)
-      .set({ status: status as any })
+      .set(updateData)
       .where(eq(appointments.id, id))
       .returning();
 

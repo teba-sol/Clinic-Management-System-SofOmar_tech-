@@ -17,10 +17,17 @@
     "services": "Tajaajila",
     "users": "Fayyadamtoota",
     "settings": "Sajoo",
-    "bookingPortal": "Beellama Buufachuu",
+    "bookingRequests": "Gaaffii Beellamaa",
     "queueDisplay": "Agarsiisa Taraannoo",
     "analytics": "Xiinxala",
-    "loggedInAs": "Akka kan seenee jirtu"
+    "loggedInAs": "Akka kan seenee jirtu",
+    "sections": {
+      "overview": "Cuunfaa",
+      "operations": "Hojiwwan",
+      "clinical": "Kiliinikaala",
+      "financial": "Maallaqaa",
+      "configuration": "Qindoomina"
+    }
   },
   "common": {
     "loading": "Fe'aa jira...",
@@ -255,6 +262,51 @@
     "tryDifferentDate": "Guyyaa biraa yaali",
     "typeToSearch": "Barbaaduuf barreessi..."
   },
+  "bookingRequests": {
+    "title": "Gaaffii Beellamaa",
+    "description": "Gaaffii beellama dhukkubsataa ilaalaa fi beellamaatti jijjiiri.",
+    "all": "Hunda",
+    "pending": "Eegaa jira",
+    "contacted": "Qunnamameera",
+    "converted": "Jijjiirameera",
+    "declined": "Didameera",
+    "emptyTitle": "Gaaffii beellamaa hin jiru",
+    "emptyDescription": "Gaaffii dhukkubsataa website irraa dhufu asitti ni mul'ata.",
+    "submittedOn": "Ergame",
+    "department": "Kutaa",
+    "doctor": "Hakiimii",
+    "anyDoctor": "Filannoo hin qabu",
+    "reason": "Sababa",
+    "markContacted": "Qunnamaa sakki",
+    "convert": "Beellamaatti jijjiiri",
+    "decline": "Didi",
+    "updated": "Gaaffiin beellamaa haaromfameera",
+    "updateError": "Gaaffii beellamaa haaromsuu hin danda'ame",
+    "convertTitle": "Beellamaatti Jijjiiri",
+    "convertDescription": "Beellama galmeessi. Dhukkubsataa jiru filachuu ykn haaraa galmeessuu dandeessa.",
+    "patientSection": "Dhukkubsataa",
+    "existingPatient": "Dhukkubsataa jiru",
+    "newPatient": "Dhukkubsataa haaraa",
+    "selectPatient": "Dhukkubsataa filadhu",
+    "firstName": "Maqaa",
+    "lastName": "Maqaa Abbaa",
+    "gender": "Saala",
+    "gender_male": "Dhiira",
+    "gender_female": "Nadhee",
+    "gender_other": "Kaan",
+    "dateOfBirth": "Guyyaa Dhalootaa",
+    "phone": "Bilbila",
+    "email": "Imeelii",
+    "doctorSection": "Beellama",
+    "selectDoctor": "Hakiimii filadhu",
+    "dateTime": "Guyyaa fi Yeroo",
+    "converting": "Jijjiirraa jira...",
+    "cancel": "Haqi",
+    "confirmConvert": "Mirkaneessi & Buufadhu",
+    "convertedSuccess": "Beellamni fuudhameera — Taraannoo #{{queue}}",
+    "convertedSuccessNoQueue": "Beellamni milkaa'inaan fuudhameera",
+    "convertError": "Gaaffii beellamaatti jijjiiruu hin danda'ame"
+  },
   "schedule": {
     "title": "Taqsimaa",
     "dayOfWeek": "Guyyaa Torbaanii",
@@ -292,5 +344,144 @@
     "features": "Waan Kiliinikii Keessan Hunda",
     "howItWorks": "Akkamitti Hojjeta",
     "ready": "Kiliinikii Keessan Ammayyeessuuf Qophaa'aniittuu?"
+  },
+  "landing": {
+    "nav": {
+      "home": "Mana",
+      "about": "Waa'ee Keenya",
+      "services": "Tajaajiloota",
+      "contact": "Qunnamii",
+      "book": "Beellama Godhachuu",
+      "staffLogin": "Seensa Hojiitootaa",
+      "menu": "Akaakuu"
+    },
+    "hero": {
+      "badge": "Hanyaadhaa ummata keenyaaf",
+      "title": "Ummata keenyaa yaaluu,",
+      "titleHighlight": "dhukkubsataa tokko tokkoon.",
+      "subtitle": "Galchaa ykn toora interneetii beellama godhachaa — ogeeyyiin, laaboratorii fi firaarmaasii keenyi akka daftee fayyaduu fi jiruu keessanitti deebitan walitti hojjetu.",
+      "primaryCta": "Beellama Godhachuu",
+      "secondaryCta": "Dubbisi"
+    },
+    "quickBook": {
+      "heading": "Beellama Gaafadhu",
+      "subheading": "Daawwannaa gaafadhu — gareen simattuu keenya beellama mirkaneessuuf siif bilbila.",
+      "name": "Maqaa guutuu",
+      "namePlaceholder": "Maqaa keessan guutuu",
+      "phone": "Lakkoofsa bilbilaa",
+      "email": "Imeelii",
+      "optional": "filannoo",
+      "department": "Kutaa / Tajaajila",
+      "date": "Guyyaa filatamaa",
+      "preferredTime": "Yeroo filatamaa",
+      "morning": "Ganama",
+      "afternoon": "Waaree booda",
+      "evening": "Galgal",
+      "doctor": "Hakiimii filatamaa",
+      "anyDoctor": "Filannoo hin qabu",
+      "reason": "Sababa / mallattoolee",
+      "reasonPlaceholder": "Maaliif daawwachuu barbaaddan gabaabidhaan ibsaa",
+      "submit": "Gaaffii Beellamaa Ergi",
+      "submitting": "Ergaa jira...",
+      "error": "Gaaffiin keessan erguu hin danda'ame. Mee ammas yaalaa.",
+      "loadingDoctors": "Hakiimoota baabii ...",
+      "hint": "Kun gaaffii beellamaati — gareen simattuu keenya beellama mirkaneessuu dura siif bilbila. Kaffaltiin amma hin barbaachisu.",
+      "successTitle": "Gaaffiin fudhatameera!",
+      "successMessage": "Galatoomi, {{name}}. Gareen simattuu keenya daawwannaa mirkaneessuuf lakkoofsa {{phone}} irratti siif bilbila.",
+      "successReference": "Wabii",
+      "successNote": "Beellamni keessan bilbilaadhaan qofa mirkanaa'ee. Yoo siif hin bilbilne, mee kiliinikii bilbilaadhaa.",
+      "submitAnother": "Gaaffii biraa ergi"
+    },
+    "stats": {
+      "doctors": "20+",
+      "patients": "10,000+",
+      "satisfaction": "97%",
+      "doctorsLabel": "Hakiimota haga-qabaa",
+      "patientsLabel": "Dhukkubsattoota Dhabarruu",
+      "satisfactionLabel": "Sadarkaa Quaqadummaa"
+    },
+    "services": {
+      "title": "Kutaa Keenya",
+      "subtitle": "Kunuunsa guutuu qabdaa tokko jala — qorannoo guyyaa guyyaa irraa jalqabee yaala addaa irratti.",
+      "general": { "name": "Yaala Waliigalaa", "desc": "Gorsa guyyaa guyyaa fi kunuunsa dhowwii maatii guutuuf." },
+      "pediatrics": { "name": "Yaala Ijoollee", "desc": "Kunuunsa qajeelaa fi adda baafame daa'imaa, ijoollee fi dargaggootaaf." },
+      "maternal": { "name": "Fayyaa Haadhaa fi Daa'imaa", "desc": "Kunuunsa ulfa, dhaloota fi kunuunsa daa'imaa bakka nageenya qabu keessatti." },
+      "lab": { "name": "Laaboratorii fi Qorannoo", "desc": "Qorannoo laaboratorii saffisaa fi sirrii murteessii addaan baafachuuf." },
+      "dentistry": { "name": "Yaala Ilkaanii", "desc": "Qulqulleessuu, guutuu fi kunuunsa ilkaanii ariffata fayyaa ta'eef." },
+      "pharmacy": { "name": "Firaarmaasii", "desc": "Qoricha bakka tajaajilaa gorsa keessan booda." },
+      "cardiology": { "name": "Yaala Onnee", "desc": "Qorannoo onnee, ECG fi kunuunsa onnee-ufuu yeroo dheeraa." },
+      "ent": { "name": "ENT", "desc": "Kunuunsa gurra, funyaanii fi kokkee umurii hundaaf." }
+    },
+    "whatWeProvide": {
+      "title": "Waan Kennuu",
+      "subtitle": "Tarkaanfii kunuunsaa hundumaa — iddoo tokko keessatti.",
+      "badge": "Waa'ee Kiliinikaa SofOmar",
+      "items": [
+        { "title": "Gorsa Dhukkubsattoota Alaa", "desc": "Beellamaan ykn al-beellamaan hakiimii daftee argaa." },
+        { "title": "Laaboratorii fi Qorannoo", "desc": "Qorannoo dhiigaa, suuraa fi bu'aa saffisaa — asuma." },
+        { "title": "Qoricha fi Firaarmaasii", "desc": "Qoricha sirrii harka keessan qabattanii daa'imaa xumurtaa." },
+        { "title": "Kunuunsa Daa'imaa fi Haadhaa", "desc": "Ulfaa irraa jalqabee qorannoo daa'imaa — fayyaan maatii guutummaatti." },
+        { "title": "Kunuunsa Ilkaanii fi ENT", "desc": "Kunuunsa adda baafame ariffata keessaniif, gurra, funyaaniifi kokkeef." },
+        { "title": "Kunuunsa Onnee fi Duubba", "desc": "Dhaabbii onnee-ufuu itti fufaa fi beellama duubbaa salphaa." }
+      ]
+    },
+    "featured": {
+      "title": "Tajaajiloota Caalmaatti Filataman",
+      "subtitle": "Kunuunsa guyyuu guyyuu kenninu haala qixa dhihootti.",
+      "cards": [
+        { "title": "Laaboratorii fi Qorannoo", "desc": "Laaboratorii guutummaa keessaa bu'aa saffisaa fi sirrii." },
+        { "title": "Gorsa Dhukkubsattoota Alaa", "desc": "Toora interneetii beellamadhaa hakiimii eeggachaa malee argaa." },
+        { "title": "Kunuunsa Haadhaa fi Daa'imaa", "desc": "Kunuunsa nageenya qabu ulfaa irraa jalqabee daa'imaa irratti." }
+      ]
+    },
+    "howItWorks": {
+      "title": "Akkamitti Hojjeta",
+      "subtitle": "Fayyaa haga-qabaa argachuun salphaadha.",
+      "steps": [
+        { "title": "Galmaa'i", "desc": "Gali ykn toora interneetii galmaa'i — galmee keessan dafee uumama." },
+        { "title": "Beellama", "desc": "Hakiimii fi yeroo keessan filadhaa, lakkoofsa taraannoo dafee argadhaa." },
+        { "title": "Gorsi", "desc": "Hakiimii keessan galmee dijitaalaa, qoricha fi ajaja laaboratorii wajjin argaa." },
+        { "title": "Duubbaa", "desc": "Bu'aa argadhaa, qoricha qabadhaa, beellama duubbaa tokkitti tolchaa." }
+      ]
+    },
+    "whyChooseUs": {
+      "title": "Maaliif SofOmar Filattu?",
+      "subtitle": "Kiliinikii sirna dijitaalaa dhugaa irratti hojjatu — waaraqaa irratti utuu hin taane.",
+      "features": [
+        { "title": "Xurree (queue) yeroodhaan", "desc": "Lakkoofsi xurree kee yeroo doktoraan kee qophaa'u sagalee dhiisuu (screen) irratti adda ba'ee mul'ata." },
+        { "title": "Ajaja (prescription) dijitaalaa", "desc": "Ajajoonni gara faarmaasiitti saani gammachu — ajaja harka hin dubbifamne hin jiru." },
+        { "title": "Bu'aa laabooraatoorii e-", "desc": "Ajajaa fi bu'aa laabooraatoorii kallattii seeneffama dijitaalaa keetti deebi'a." },
+        { "title": "Beellama online", "desc": "Iddoo kamiyyuu galmaa'i fi beellama godhadhu — gahumsa kee dura xurree kee qophaa'a." },
+        { "title": "Kaffaltii ogummaa", "desc": "Bilillee adda-addaa wajjin kaffaltii guutuu, gartokkee fi haftee tokkoo tokkoon mul'ata." },
+        { "title": "Xiinxala (analytics) yeroodhaan", "desc": "Galii, yeroo eegaa fi gahumsa yeroo tokkotti ilaali." }
+      ]
+    },
+    "team": {
+      "title": "Garee Keenya Beekaa",
+      "subtitle": "Hayyootni fi hojjattootni Soof Omaar kaasaa.",
+      "groupAlt": "Gareen Soof Omaar",
+      "members": [
+        { "name": "Dr. Saamu'el Alemu", "role": "Hoogaansa Wal'aansa", "desc": "Kokkolii fayyaa baay'ee waggaa 15 ol qaba." },
+        { "name": "Dr. Saara Baqqalaa", "role": "Hayyuu Waliigalaa", "desc": "Wal'aansa ittisaanii fi maatii jaalata." },
+        { "name": "Narsii Haana Taaddasaa", "role": "Narsii Gurguddoo", "desc": "Hojii kilinii fi bilisa'ina nama dhukkubsatu haalaaf." },
+        { "name": "Miika'el Girmaa", "role": "Ogeessa Laabooraatoorii", "desc": "Bu'aa laabooraatoorii saffisaa fi sirrii kenn." }
+      ]
+    },
+    "cta": {
+      "title": "Fayyuu qophaa'aniittuu?",
+      "subtitle": "Har'a beellama godhadhaa, hafeef gareen keenya haa qophaa'u.",
+      "button": "Beellama Godhachuu"
+    },
+    "footer": {
+      "tagline": "Kunuunsa arifataa fi wal-qindeessaa ummata keenyaaf.",
+      "quickLinks": "Lakki Saffisaa",
+      "services": "Tajaajiloota",
+      "contact": "Qunnamii",
+      "phone": "+251 91 234 5678",
+      "address": "Karaa Bolee, Finfinnee, Itoophiyaa",
+      "email": "hello@sofomar.health",
+      "rights": "Mirgi hundi eegamaadha.",
+      "staffLogin": "Seensa Hojiitootaa"
+    }
   }
 }

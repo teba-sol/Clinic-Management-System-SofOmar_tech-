@@ -35,10 +35,10 @@ export class InvoicesController {
     return this.invoicesService.findByPatient(patientId);
   }
 
-  @Get('suggestions/:patientId')
+  @Get('auto-fill/:patientId')
   @Roles('cashier', 'admin')
-  getSuggestions(@Param('patientId') patientId: string) {
-    return this.invoicesService.getSuggestions(patientId);
+  getAutoFill(@Param('patientId') patientId: string) {
+    return this.invoicesService.getAutoFill(patientId);
   }
 
   @Patch(':id/pay')

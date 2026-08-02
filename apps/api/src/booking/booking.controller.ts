@@ -1,10 +1,40 @@
-import { Controller, Get, Post, Body, Param, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { db } from '../db';
 import { users, doctorSchedules, appointments, patients } from '../db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
+import { BookingService } from './booking.service';
+import { CreateBookingRequestDto } from './dto/create-booking-request.dto';
+import { UpdateBookingRequestStatusDto } from './dto/update-booking-request-status.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('booking')
 export class BookingController {
+  constructor(private readonly bookingService: BookingService) {}
+
+  @Post('requests')
+  createRequest(@Body() dto: CreateBookingRequestDto) {
+    return this.bookingService.create(dto);
+  }
+
+  @Get('requests')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist')
+  findRequests() {
+    return this.bookingService.findAll();
+  }
+
+  @Patch('requests/:id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist')
+  updateRequestStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateBookingRequestStatusDto,
+  ) {
+    return this.bookingService.updateStatus(id, dto.status);
+  }
+
   @Get('doctors')
   async getDoctors() {
     const doctors = await db

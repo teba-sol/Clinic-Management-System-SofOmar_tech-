@@ -5,18 +5,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { getAge } from '@/lib/utils';
 
 function getInitials(first: string, last: string): string {
   return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
-}
-
-function getAge(dob: string): number {
-  const birth = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
 }
 
 export function PatientContextBar() {
@@ -28,7 +20,7 @@ export function PatientContextBar() {
   const age = patient.dateOfBirth ? getAge(patient.dateOfBirth) : null;
 
   return (
-    <div className="sticky top-16 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-2 bg-gradient-to-r from-primary/5 via-background to-primary/5 border-b border-primary/10 backdrop-blur-sm">
+    <div className="sticky top-16 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-2 bg-background border-b border-primary/10 shadow-sm">
       <div className="flex items-center gap-3">
         <Avatar className="size-9 border-2 border-primary/20">
           <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">

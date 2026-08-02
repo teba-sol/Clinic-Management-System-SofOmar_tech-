@@ -30,15 +30,20 @@ function StatCard({ title, value, subtitle, icon: Icon, className }: { title: st
   );
 }
 
+function localDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function AnalyticsPage() {
-  const today = new Date().toISOString().split('T')[0];
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const today = localDateStr(new Date());
+  const thirtyDaysAgo = localDateStr(new Date(Date.now() - 30 * 86400000));
+  const ninetyDaysAgo = localDateStr(new Date(Date.now() - 90 * 86400000));
 
   const [revenueStart, setRevenueStart] = useState(thirtyDaysAgo);
   const [revenueEnd, setRevenueEnd] = useState(today);
   const [flowStart, setFlowStart] = useState(thirtyDaysAgo);
   const [flowEnd, setFlowEnd] = useState(today);
-  const [diagStart, setDiagStart] = useState(new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]);
+  const [diagStart, setDiagStart] = useState(ninetyDaysAgo);
   const [diagEnd, setDiagEnd] = useState(today);
 
   const { data: revenue, isFetching: loadingRevenue, refetch: refetchRevenue } = useQuery<any>({

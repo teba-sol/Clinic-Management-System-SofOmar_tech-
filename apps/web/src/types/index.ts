@@ -48,6 +48,7 @@ export interface Appointment {
   scheduledAt: string;
   queueNumber: number;
   status: AppointmentStatus;
+  returnedForRecheck?: boolean;
   createdAt: string;
 }
 
@@ -92,11 +93,13 @@ export interface LabOrder {
   visitId: string;
   patientId: string;
   orderedByDoctorId: string;
+  orderedByDoctorName?: string;
   testType: string;
   status: LabOrderStatus;
   resultText?: string;
   resultPdfUrl?: string;
   completedByLabTechId?: string;
+  patient?: Patient;
   createdAt: string;
   updatedAt: string;
 }
@@ -206,7 +209,7 @@ export interface UpdateLabOrderDto {
 export interface CreateInvoiceDto {
   patientId: string;
   visitId?: string;
-  items: { description: string; quantity: number; unitPrice: number }[];
+  items: { serviceId?: string | null; description: string; quantity: number; unitPrice: number }[];
 }
 
 export interface PayInvoiceDto {
@@ -268,4 +271,34 @@ export interface CreateUserDto {
   password: string;
   name: string;
   role: string;
+}
+
+export type BookingRequestStatus = 'pending' | 'contacted' | 'converted' | 'declined';
+export type PreferredTime = 'morning' | 'afternoon' | 'evening';
+
+export interface BookingRequest {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  department: string;
+  preferredDate: string;
+  preferredTime: PreferredTime;
+  doctorId?: string;
+  doctorName?: string;
+  reason?: string;
+  status: BookingRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBookingRequestDto {
+  name: string;
+  phone: string;
+  email?: string;
+  department: string;
+  preferredDate: string;
+  preferredTime: PreferredTime;
+  doctorId?: string;
+  reason?: string;
 }

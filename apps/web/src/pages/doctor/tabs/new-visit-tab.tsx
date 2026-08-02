@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { useOffline } from '@/context/offline-context';
+import { enqueue } from '@/lib/offline-queue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +26,7 @@ export function NewVisitTab({
   doctorId,
 }: NewVisitTabProps) {
   const queryClient = useQueryClient();
+  const { isOnline, lastSyncAt, refreshPendingCount } = useOffline();
   const [subjective, setSubjective] = useState('');
   const [objective, setObjective] = useState('');
   const [assessment, setAssessment] = useState('');
@@ -85,12 +88,17 @@ export function NewVisitTab({
     }
   }, [existingVisit, isEditingToday]);
 
+  useEffect(() => {
+    if (lastSyncAt) {
+      queryClient.invalidateQueries({ queryKey: ['visit-by-appointment', appointmentId] });
+      queryClient.invalidateQueries({ queryKey: ['doctor-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-visits', patientId] });
+    }
+  }, [lastSyncAt, appointmentId, patientId, queryClient]);
+
   const saveDraftMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        appointmentId,
-        patientId,
-        doctorId,
+      const notes = {
         subjective,
         objective,
         assessment,
@@ -99,13 +107,40 @@ export function NewVisitTab({
         diagnosisDescription: diagnosisDescription || undefined,
       };
 
-      if (isEditingToday) {
-        const { appointmentId: _a, patientId: _p, doctorId: _d, ...editable } = payload;
-        return api.patch(`/visits/${existingVisit!.id}`, editable);
+      if (!isOnline) {
+        if (isEditingToday) {
+          await enqueue({
+            id: crypto.randomUUID(),
+            type: 'visit-update',
+            method: 'PATCH',
+            url: `/visits/${existingVisit!.id}`,
+            payload: { ...notes, completeAppointment: false },
+            createdAt: new Date().toISOString(),
+          });
+        } else {
+          await enqueue({
+            id: crypto.randomUUID(),
+            type: 'visit-create',
+            method: 'POST',
+            url: '/visits',
+            payload: { appointmentId, patientId, doctorId, ...notes, completeAppointment: false },
+            createdAt: new Date().toISOString(),
+          });
+        }
+        await refreshPendingCount();
+        return { queued: true };
       }
-      return api.post('/visits', { ...payload, completeAppointment: false });
+
+      if (isEditingToday) {
+        return api.patch(`/visits/${existingVisit!.id}`, notes);
+      }
+      return api.post('/visits', { appointmentId, patientId, doctorId, ...notes, completeAppointment: false });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result && (result as { queued?: boolean }).queued) {
+        toast.info('Draft saved offline — will sync automatically when you reconnect');
+        return;
+      }
       queryClient.invalidateQueries({
         queryKey: ['visit-by-appointment', appointmentId],
       });
@@ -118,10 +153,7 @@ export function NewVisitTab({
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
-        appointmentId,
-        patientId,
-        doctorId,
+      const notes = {
         subjective,
         objective,
         assessment,
@@ -130,16 +162,43 @@ export function NewVisitTab({
         diagnosisDescription: diagnosisDescription || undefined,
       };
 
+      if (!isOnline) {
+        if (isEditingToday) {
+          await enqueue({
+            id: crypto.randomUUID(),
+            type: 'visit-update',
+            method: 'PATCH',
+            url: `/visits/${existingVisit!.id}`,
+            payload: { ...notes, completeAppointment: true },
+            createdAt: new Date().toISOString(),
+          });
+        } else {
+          await enqueue({
+            id: crypto.randomUUID(),
+            type: 'visit-create',
+            method: 'POST',
+            url: '/visits',
+            payload: { appointmentId, patientId, doctorId, ...notes, completeAppointment: true },
+            createdAt: new Date().toISOString(),
+          });
+        }
+        await refreshPendingCount();
+        return { queued: true };
+      }
+
       if (isEditingToday) {
-        const { appointmentId: _a, patientId: _p, doctorId: _d, ...editable } = payload;
         return api.patch(`/visits/${existingVisit!.id}`, {
-          ...editable,
+          ...notes,
           completeAppointment: true,
         });
       }
-      return api.post('/visits', { ...payload, completeAppointment: true });
+      return api.post('/visits', { appointmentId, patientId, doctorId, ...notes, completeAppointment: true });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result && (result as { queued?: boolean }).queued) {
+        toast.info('Visit saved offline — will sync automatically when you reconnect');
+        return;
+      }
       queryClient.invalidateQueries({
         queryKey: ['visit-by-appointment', appointmentId],
       });

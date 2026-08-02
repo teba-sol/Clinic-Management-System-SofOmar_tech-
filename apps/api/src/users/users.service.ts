@@ -2,7 +2,7 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { db } from '../db';
 import { users } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
@@ -37,5 +37,10 @@ export class UsersService {
   async findAll() {
     const allUsers = await db.select().from(users);
     return allUsers.map(({ passwordHash, ...safe }) => safe);
+  }
+
+  async count() {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(users);
+    return result[0]?.count ?? 0;
   }
 }

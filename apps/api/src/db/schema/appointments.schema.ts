@@ -1,4 +1,4 @@
-import { pgTable, uuid, timestamp, integer, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, timestamp, integer, boolean, pgEnum } from 'drizzle-orm/pg-core';
 import { users } from './users.schema';
 import { patients } from './patients.schema';
 
@@ -13,5 +13,6 @@ export const appointments = pgTable('appointments', {
   scheduledAt: timestamp('scheduled_at').notNull(),
   queueNumber: integer('queue_number').notNull(),
   status: appointmentStatusEnum('status').notNull().default('booked'),
+  returnedForRecheck: boolean('returned_for_recheck').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

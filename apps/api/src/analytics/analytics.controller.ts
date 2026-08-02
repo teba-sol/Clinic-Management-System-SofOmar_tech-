@@ -9,18 +9,33 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AnalyticsController {
+  private parseRange(range?: string) {
+    const days = range === '7d' ? 7 : 30;
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    return start;
+  }
+
+  private parseDateRange(startStr?: string, endStr?: string, defaultDays = 30) {
+    const start = startStr ? new Date(`${startStr}T00:00:00.000`) : new Date(new Date().setDate(new Date().getDate() - defaultDays));
+    const end = endStr ? new Date(`${endStr}T23:59:59.999`) : new Date();
+    return { start, end };
+  }
+
   @Get('revenue')
   @Roles('admin', 'cashier')
   async revenue(@Query('start') startStr?: string, @Query('end') endStr?: string) {
-    const start = startStr ? new Date(startStr) : new Date(new Date().setDate(new Date().getDate() - 30));
-    const end = endStr ? new Date(endStr) : new Date();
+    const { start, end } = this.parseDateRange(startStr, endStr);
 
     const rows = await db
       .select({
         date: sql`DATE(${invoices.updatedAt})`,
         total: sql`SUM(${invoices.totalAmount}::numeric)`,
         paid: sql`SUM(CASE WHEN ${invoices.status} IN ('paid','partial') THEN ${invoices.amountPaid}::numeric ELSE 0 END)`,
-        pending: sql`SUM(CASE WHEN ${invoices.status} = 'pending' THEN ${invoices.totalAmount}::numeric ELSE 0 END)`,
+        pending: sql`SUM(CASE
+          WHEN ${invoices.status} = 'pending' THEN ${invoices.totalAmount}::numeric
+          WHEN ${invoices.status} = 'partial' THEN (${invoices.totalAmount}::numeric - ${invoices.amountPaid}::numeric)
+          ELSE 0 END)`,
         count: sql`COUNT(*)`,
       })
       .from(invoices)
@@ -51,8 +66,7 @@ export class AnalyticsController {
   @Get('patient-flow')
   @Roles('admin', 'doctor', 'cashier')
   async patientFlow(@Query('start') startStr?: string, @Query('end') endStr?: string) {
-    const start = startStr ? new Date(startStr) : new Date(new Date().setDate(new Date().getDate() - 30));
-    const end = endStr ? new Date(endStr) : new Date();
+    const { start, end } = this.parseDateRange(startStr, endStr);
 
     const dailyVisits = await db
       .select({
@@ -89,11 +103,80 @@ export class AnalyticsController {
     return { daily: dailyVisits, appointments: dailyAppointments, totals: totals[0], period: { start, end } };
   }
 
+  @Get('patient-volume')
+  @Roles('admin')
+  async patientVolume(@Query('range') range?: string) {
+    const start = this.parseRange(range);
+
+    const rows = await db
+      .select({
+        date: sql`to_char(${visits.createdAt}::date, 'YYYY-MM-DD')`,
+        count: sql`COUNT(*)`,
+      })
+      .from(visits)
+      .where(gte(visits.createdAt, start))
+      .groupBy(sql`to_char(${visits.createdAt}::date, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${visits.createdAt}::date, 'YYYY-MM-DD')`);
+
+    return rows;
+  }
+
+  @Get('revenue-by-service')
+  @Roles('admin')
+  async revenueByService(@Query('range') range?: string) {
+    const start = this.parseRange(range);
+
+    const category = sql`CASE
+      WHEN ${invoiceItems.description} ILIKE 'Lab:%' THEN 'Lab'
+      WHEN LOWER(${invoiceItems.description}) LIKE '%consult%' THEN 'Consultation'
+      ELSE 'Procedures'
+    END`;
+
+    const rows = await db
+      .select({
+        category,
+        total: sql`SUM(${invoiceItems.unitPrice}::numeric * ${invoiceItems.quantity})`,
+      })
+      .from(invoiceItems)
+      .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+      .where(
+        and(
+          gte(invoices.createdAt, start),
+          sql`${invoices.status} != 'cancelled'`,
+        ),
+      )
+      .groupBy(category)
+      .orderBy(
+        sql`SUM(${invoiceItems.unitPrice}::numeric * ${invoiceItems.quantity}) DESC`,
+      );
+
+    return rows;
+  }
+
+  @Get('peak-hours')
+  @Roles('admin')
+  async peakHours(@Query('range') range?: string) {
+    const start = this.parseRange(range);
+
+    const hour = sql`EXTRACT(HOUR FROM ${appointments.scheduledAt})::int`;
+
+    const rows = await db
+      .select({
+        hour,
+        count: sql`COUNT(*)`,
+      })
+      .from(appointments)
+      .where(gte(appointments.scheduledAt, start))
+      .groupBy(hour)
+      .orderBy(hour);
+
+    return rows;
+  }
+
   @Get('diagnoses')
   @Roles('admin', 'doctor')
   async diagnoses(@Query('start') startStr?: string, @Query('end') endStr?: string) {
-    const start = startStr ? new Date(startStr) : new Date(new Date().setDate(new Date().getDate() - 90));
-    const end = endStr ? new Date(endStr) : new Date();
+    const { start, end } = this.parseDateRange(startStr, endStr, 90);
 
     const rows = await db
       .select({

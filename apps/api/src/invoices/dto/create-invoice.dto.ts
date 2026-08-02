@@ -2,6 +2,10 @@ import { IsUUID, IsOptional, IsArray, ValidateNested, IsString, IsNumber, Min } 
 import { Type } from 'class-transformer';
 
 class InvoiceItemDto {
+  @IsOptional()
+  @IsUUID()
+  serviceId?: string;
+
   @IsString()
   description: string;
 

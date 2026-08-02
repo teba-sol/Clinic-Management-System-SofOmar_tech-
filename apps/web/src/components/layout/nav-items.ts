@@ -11,7 +11,6 @@ import {
   Receipt,
   Settings,
   Package,
-  Monitor,
   CalendarPlus,
   BarChart3,
   type LucideIcon,
@@ -27,121 +26,146 @@ export interface NavItem {
   badge?: string;
 }
 
-export const navItems: NavItem[] = [
+export interface NavSection {
+  key: string;
+  labelKey: string;
+  items: NavItem[];
+}
+
+export const navSections: NavSection[] = [
   {
-    key: 'dashboard',
-    label: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-    roles: ['admin', 'doctor', 'nurse', 'receptionist', 'lab_tech', 'cashier'],
+    key: 'overview',
+    labelKey: 'nav.sections.overview',
+    items: [
+      {
+        key: 'dashboard',
+        label: 'Dashboard',
+        href: '/dashboard',
+        icon: LayoutDashboard,
+        roles: ['admin', 'doctor', 'nurse', 'receptionist', 'lab_tech', 'cashier'],
+      },
+    ],
   },
   {
-    key: 'patients',
-    label: 'Patients',
-    href: '/patients',
-    icon: Users,
-    roles: ['admin', 'doctor', 'nurse', 'receptionist'],
+    key: 'operations',
+    labelKey: 'nav.sections.operations',
+    items: [
+      {
+        key: 'patients',
+        label: 'Patients',
+        href: '/patients',
+        icon: Users,
+        roles: ['admin', 'doctor', 'nurse', 'receptionist'],
+      },
+      {
+        key: 'appointments',
+        label: 'Appointments',
+        href: '/appointments',
+        icon: CalendarCheck,
+        roles: ['admin', 'receptionist'],
+      },
+      {
+        key: 'queue',
+        label: 'Queue',
+        href: '/queue',
+        icon: ClipboardList,
+        roles: ['admin', 'nurse', 'receptionist'],
+      },
+      {
+        key: 'bookingRequests',
+        label: 'Booking Requests',
+        href: '/booking-requests',
+        icon: CalendarPlus,
+        roles: ['admin', 'receptionist'],
+      },
+      {
+        key: 'myQueue',
+        label: 'My Queue',
+        href: '/doctor',
+        icon: ClipboardList,
+        roles: ['doctor'],
+      },
+    ],
   },
   {
-    key: 'appointments',
-    label: 'Appointments',
-    href: '/appointments',
-    icon: CalendarCheck,
-    roles: ['admin', 'receptionist'],
+    key: 'clinical',
+    labelKey: 'nav.sections.clinical',
+    items: [
+      {
+        key: 'visits',
+        label: 'Visits',
+        href: '/visits',
+        icon: Stethoscope,
+        roles: ['admin', 'doctor', 'nurse'],
+      },
+      {
+        key: 'prescriptions',
+        label: 'Prescriptions',
+        href: '/prescriptions',
+        icon: Pill,
+        roles: ['admin', 'doctor', 'nurse'],
+      },
+      {
+        key: 'labOrders',
+        label: 'Lab Orders',
+        href: '/lab-orders',
+        icon: FlaskConical,
+        roles: ['admin', 'doctor', 'lab_tech'],
+      },
+    ],
   },
   {
-    key: 'myQueue',
-    label: 'My Queue',
-    href: '/doctor',
-    icon: ClipboardList,
-    roles: ['doctor'],
+    key: 'financial',
+    labelKey: 'nav.sections.financial',
+    items: [
+      {
+        key: 'invoices',
+        label: 'Invoices',
+        href: '/invoices',
+        icon: Receipt,
+        roles: ['admin', 'cashier'],
+      },
+      {
+        key: 'analytics',
+        label: 'Analytics',
+        href: '/analytics',
+        icon: BarChart3,
+        roles: ['admin', 'cashier'],
+      },
+    ],
   },
   {
-    key: 'queue',
-    label: 'Queue',
-    href: '/queue',
-    icon: ClipboardList,
-    roles: ['admin', 'nurse', 'receptionist'],
-  },
-  {
-    key: 'schedules',
-    label: 'Schedules',
-    href: '/schedules',
-    icon: Calendar,
-    roles: ['admin'],
-  },
-  {
-    key: 'visits',
-    label: 'Visits',
-    href: '/visits',
-    icon: Stethoscope,
-    roles: ['admin', 'doctor', 'nurse'],
-  },
-  {
-    key: 'prescriptions',
-    label: 'Prescriptions',
-    href: '/prescriptions',
-    icon: Pill,
-    roles: ['admin', 'doctor', 'nurse'],
-  },
-  {
-    key: 'labOrders',
-    label: 'Lab Orders',
-    href: '/lab-orders',
-    icon: FlaskConical,
-    roles: ['admin', 'doctor', 'lab_tech'],
-  },
-  {
-    key: 'invoices',
-    label: 'Invoices',
-    href: '/invoices',
-    icon: Receipt,
-    roles: ['admin', 'cashier'],
-  },
-  {
-    key: 'analytics',
-    label: 'Analytics',
-    href: '/analytics',
-    icon: BarChart3,
-    roles: ['admin', 'cashier'],
-  },
-  {
-    key: 'services',
-    label: 'Services',
-    href: '/services',
-    icon: Package,
-    roles: ['admin'],
-  },
-  {
-    key: 'users',
-    label: 'Users',
-    href: '/users',
-    icon: UserPlus,
-    roles: ['admin'],
-  },
-  {
-    key: 'bookingPortal',
-    label: 'Booking Portal',
-    href: '/booking',
-    icon: CalendarPlus,
-    roles: ['admin', 'receptionist'],
-  },
-  {
-    key: 'queueDisplay',
-    label: 'Queue Display',
-    href: '/queue-display',
-    icon: Monitor,
-    roles: ['admin', 'receptionist', 'nurse'],
-  },
-  {
-    key: 'settings',
-    label: 'Settings',
-    href: '/settings',
-    icon: Settings,
-    roles: ['admin', 'doctor', 'nurse', 'receptionist', 'lab_tech', 'cashier'],
+    key: 'configuration',
+    labelKey: 'nav.sections.configuration',
+    items: [
+      {
+        key: 'schedules',
+        label: 'Schedules',
+        href: '/schedules',
+        icon: Calendar,
+        roles: ['admin'],
+      },
+      {
+        key: 'services',
+        label: 'Services',
+        href: '/services',
+        icon: Package,
+        roles: ['admin'],
+      },
+      {
+        key: 'users',
+        label: 'Users',
+        href: '/users',
+        icon: UserPlus,
+        roles: ['admin'],
+      },
+      {
+        key: 'settings',
+        label: 'Settings',
+        href: '/settings',
+        icon: Settings,
+        roles: ['admin', 'doctor', 'nurse', 'receptionist', 'lab_tech', 'cashier'],
+      },
+    ],
   },
 ];
-
-export function getFilteredNavItems(role: UserRole): NavItem[] {
-  return navItems.filter((item) => item.roles.includes(role));
-}

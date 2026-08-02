@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { IsEmail, IsString, IsUUID } from 'class-validator';
+import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -20,6 +20,26 @@ class RefreshDto {
   userId!: string;
 }
 
+class LogoutDto {
+  @IsString()
+  refreshToken!: string;
+
+  @IsUUID()
+  userId!: string;
+}
+
+class BootstrapAdminDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(6)
+  password!: string;
+
+  @IsString()
+  name!: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -34,6 +54,20 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken, dto.userId);
+  }
+
+  @Post('bootstrap-admin')
+  @HttpCode(HttpStatus.CREATED)
+  bootstrapAdmin(@Body() dto: BootstrapAdminDto) {
+    return this.authService.bootstrapAdmin(dto);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logout(@Body() dto: LogoutDto) {
+    await this.authService.logout(dto.refreshToken, dto.userId);
+    return { ok: true };
   }
 
   @Get('me')

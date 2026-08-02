@@ -30,6 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    const storedUser = localStorage.getItem('user');
+    const userId = storedUser ? (JSON.parse(storedUser) as { id?: string }).id : undefined;
+    if (refreshToken && userId) {
+      api.post('/auth/logout', { refreshToken, userId }).catch(() => undefined);
+    }
     localStorage.clear();
     setUser(null);
   }, []);

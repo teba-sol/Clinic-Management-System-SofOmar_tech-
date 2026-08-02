@@ -17,10 +17,17 @@
     "services": "Services",
     "users": "Users",
     "settings": "Settings",
-    "bookingPortal": "Booking Portal",
+    "bookingRequests": "Booking Requests",
     "queueDisplay": "Queue Display",
     "analytics": "Analytics",
-    "loggedInAs": "Logged in as"
+    "loggedInAs": "Logged in as",
+    "sections": {
+      "overview": "Overview",
+      "operations": "Operations",
+      "clinical": "Clinical",
+      "financial": "Financial",
+      "configuration": "Configuration"
+    }
   },
   "common": {
     "loading": "Loading...",
@@ -255,6 +262,51 @@
     "tryDifferentDate": "Try a different date",
     "typeToSearch": "Type to search..."
   },
+  "bookingRequests": {
+    "title": "Booking Requests",
+    "description": "Review patient booking requests and convert them into appointments.",
+    "all": "All",
+    "pending": "Pending",
+    "contacted": "Contacted",
+    "converted": "Converted",
+    "declined": "Declined",
+    "emptyTitle": "No booking requests",
+    "emptyDescription": "New patient requests from the website will appear here.",
+    "submittedOn": "Submitted on",
+    "department": "Department",
+    "doctor": "Doctor",
+    "anyDoctor": "No preference",
+    "reason": "Reason",
+    "markContacted": "Mark contacted",
+    "convert": "Convert to appointment",
+    "decline": "Decline",
+    "updated": "Booking request updated",
+    "updateError": "Could not update the booking request",
+    "convertTitle": "Convert to Appointment",
+    "convertDescription": "Register the appointment. You can pick an existing patient or register a new one.",
+    "patientSection": "Patient",
+    "existingPatient": "Existing patient",
+    "newPatient": "New patient",
+    "selectPatient": "Select patient",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "gender": "Gender",
+    "gender_male": "Male",
+    "gender_female": "Female",
+    "gender_other": "Other",
+    "dateOfBirth": "Date of birth",
+    "phone": "Phone",
+    "email": "Email",
+    "doctorSection": "Appointment",
+    "selectDoctor": "Select doctor",
+    "dateTime": "Date & time",
+    "converting": "Converting...",
+    "cancel": "Cancel",
+    "confirmConvert": "Confirm & Book",
+    "convertedSuccess": "Appointment booked — Queue #{{queue}}",
+    "convertedSuccessNoQueue": "Appointment booked successfully",
+    "convertError": "Failed to convert the request to an appointment"
+  },
   "schedule": {
     "title": "Schedules",
     "dayOfWeek": "Day of Week",
@@ -292,5 +344,144 @@
     "features": "Everything Your Clinic Needs",
     "howItWorks": "How It Works",
     "ready": "Ready to Modernize Your Clinic?"
+  },
+  "landing": {
+    "nav": {
+      "home": "Home",
+      "about": "About",
+      "services": "Services",
+      "contact": "Contact",
+      "book": "Book Appointment",
+      "staffLogin": "Staff Login",
+      "menu": "Menu"
+    },
+    "hero": {
+      "badge": "Quality care for our community",
+      "title": "Fast, digital care. Built around you,",
+      "titleHighlight": "Your health first.",
+      "subtitle": "Walk in or book online — our doctors, laboratories, and pharmacy work together to get you healthy and back to life quickly.",
+      "primaryCta": "Book Appointment",
+      "secondaryCta": "Learn more"
+    },
+    "quickBook": {
+      "heading": "Book an Appointment",
+      "subheading": "Request a visit — our reception team will call you to confirm.",
+      "name": "Full name",
+      "namePlaceholder": "Your full name",
+      "phone": "Phone number",
+      "email": "Email",
+      "optional": "optional",
+      "department": "Department / Service",
+      "date": "Preferred date",
+      "preferredTime": "Preferred time",
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "doctor": "Preferred doctor",
+      "anyDoctor": "No preference",
+      "reason": "Reason / symptoms",
+      "reasonPlaceholder": "Briefly describe why you'd like to visit",
+      "submit": "Send Booking Request",
+      "submitting": "Sending...",
+      "error": "Could not submit your request. Please try again.",
+      "loadingDoctors": "Loading doctors…",
+      "hint": "This is a booking request — our reception team will call you to confirm before finalizing your appointment. No payment is needed now.",
+      "successTitle": "Request received!",
+      "successMessage": "Thank you, {{name}}. Our reception team will call you at {{phone}} to confirm your visit.",
+      "successReference": "Reference",
+      "successNote": "Your appointment is confirmed by phone call only. If you don't hear from us, feel free to call the clinic.",
+      "submitAnother": "Submit another request"
+    },
+    "stats": {
+      "doctors": "20+",
+      "patients": "10,000+",
+      "satisfaction": "97%",
+      "doctorsLabel": "Qualified Doctors",
+      "patientsLabel": "Patients Served",
+      "satisfactionLabel": "Satisfaction Rate"
+    },
+    "services": {
+      "title": "Our Departments",
+      "subtitle": "A full range of care under one roof — from everyday checkups to specialised treatment.",
+      "general": { "name": "General Medicine", "desc": "Everyday consultations and preventive care for the whole family." },
+      "pediatrics": { "name": "Pediatrics", "desc": "Gentle, dedicated care for infants, children, and teens." },
+      "maternal": { "name": "Maternal & Child Health", "desc": "Antenatal care, delivery, and newborn care in a safe environment." },
+      "lab": { "name": "Lab & Diagnostics", "desc": "Fast, accurate laboratory tests to guide every diagnosis." },
+      "dentistry": { "name": "Dentistry", "desc": "Cleanings, fillings, and dental care for healthy smiles." },
+      "pharmacy": { "name": "Pharmacy", "desc": "Medication dispensed on-site, right after your consultation." },
+      "cardiology": { "name": "Cardiology", "desc": "Heart checkups, ECG, and long-term cardiovascular care." },
+      "ent": { "name": "ENT", "desc": "Care for the ear, nose, and throat for patients of all ages." }
+    },
+    "whatWeProvide": {
+      "title": "What We Provide",
+      "subtitle": "Every step of your care — coordinated in one place.",
+      "badge": "About SofOmar Clinic",
+      "items": [
+        { "title": "Outpatient Consultations", "desc": "See a doctor quickly with scheduled or walk-in appointments." },
+        { "title": "Laboratory & Diagnostics", "desc": "Blood tests, imaging and results delivered fast — right here." },
+        { "title": "Prescriptions & Pharmacy", "desc": "Leave with the right medication in hand after your visit." },
+        { "title": "Child & Maternal Care", "desc": "From antenatal visits to paediatric checkups — family health covered." },
+        { "title": "Dental & ENT Care", "desc": "Specialised care for your smile, ears, nose, and throat." },
+        { "title": "Heart Care & Follow-ups", "desc": "Ongoing cardiovascular support and easy follow-up booking." }
+      ]
+    },
+    "featured": {
+      "title": "Featured Services",
+      "subtitle": "A closer look at the care we offer every day.",
+      "cards": [
+        { "title": "Laboratory & Diagnostics", "desc": "Fast, accurate results from a full-service lab." },
+        { "title": "Outpatient Consultations", "desc": "Book online and see a doctor without the wait." },
+        { "title": "Maternal & Child Care", "desc": "Safe, supported care from pregnancy to childhood." }
+      ]
+    },
+    "howItWorks": {
+      "title": "How It Works",
+      "subtitle": "Getting quality care is simple.",
+      "steps": [
+        { "title": "Register", "desc": "Walk in or register online — your records are created instantly." },
+        { "title": "Book", "desc": "Pick your doctor and time, and get your queue number right away." },
+        { "title": "Consult", "desc": "See your doctor with digital records, prescriptions, and lab orders in one visit." },
+        { "title": "Follow-up", "desc": "Get results, collect medication, and book follow-ups in a tap." }
+      ]
+    },
+    "whyChooseUs": {
+      "title": "Why Choose SofOmar",
+      "subtitle": "A clinic that runs on real digital systems — not paper.",
+      "features": [
+        { "title": "Real-time queue", "desc": "Your queue number updates live on the waiting-room screen as soon as your doctor is ready." },
+        { "title": "Digital prescriptions", "desc": "Prescriptions are written and sent to the pharmacy electronically — no illegible handwritten scripts." },
+        { "title": "E-lab results", "desc": "Lab orders and results return straight into your digital record, ready the moment they're released." },
+        { "title": "Online booking", "desc": "Register and book from anywhere — your visit is queued before you even walk in." },
+        { "title": "Smart billing", "desc": "Itemized invoices with paid, partially paid, and pending balances tracked per visit." },
+        { "title": "Live analytics", "desc": "Reception and management see revenue, wait times, and visits at a glance." }
+      ]
+    },
+    "team": {
+      "title": "Meet Our Crew",
+      "subtitle": "The doctors and staff who keep SofOmar running.",
+      "groupAlt": "The SofOmar crew",
+      "members": [
+        { "name": "Dr. X", "role": "Medical Director", "desc": "Over 15 years of experience leading patient-centred care." },
+        { "name": "Dr. Y", "role": "General Practitioner", "desc": "Passionate about preventive care and family medicine." },
+        { "name": "Nurse Z", "role": "Head Nurse", "desc": "Coordinates daily clinical operations and patient comfort." },
+        { "name": "A B", "role": "Lab Technician", "desc": "Delivers fast, accurate laboratory results for every diagnosis." }
+      ]
+    },
+    "cta": {
+      "title": "Ready to feel better?",
+      "subtitle": "Book an appointment today and let our team take care of the rest.",
+      "button": "Book Appointment"
+    },
+    "footer": {
+      "tagline": "Compassionate, coordinated care for our community.",
+      "quickLinks": "Quick Links",
+      "services": "Services",
+      "contact": "Contact",
+      "phone": "+251 934355394",
+      "address": "xyz, Addis Ababa, Ethiopia",
+      "email": "solomontebibu25@gmail.com",
+      "rights": "All rights reserved.",
+      "staffLogin": "Staff Login"
+    }
   }
 }

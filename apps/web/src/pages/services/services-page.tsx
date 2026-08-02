@@ -18,7 +18,7 @@ import { Package, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Service } from '@/types';
 
-const CATEGORIES = ['consultation', 'lab', 'radiology', 'procedure', 'medication', 'other'];
+const CATEGORIES = ['consultation', 'lab', 'radiology', 'procedure', 'medication', 'supply', 'other'];
 
 export default function ServicesPage() {
   const queryClient = useQueryClient();

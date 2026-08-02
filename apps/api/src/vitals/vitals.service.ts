@@ -40,6 +40,11 @@ export class VitalsService {
       'nurse',
     );
 
+    await db
+      .update(appointments)
+      .set({ returnedForRecheck: false })
+      .where(eq(appointments.id, dto.appointmentId));
+
     return vital;
   }
 
@@ -100,6 +105,11 @@ export class VitalsService {
       .set(updateData)
       .where(eq(vitals.id, vitalId))
       .returning();
+
+    await db
+      .update(appointments)
+      .set({ returnedForRecheck: false })
+      .where(eq(appointments.id, vital.appointmentId));
 
     return updated;
   }

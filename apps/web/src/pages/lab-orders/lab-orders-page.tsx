@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
@@ -7,6 +8,7 @@ import { PageHeader } from '@/components/shared/page-header';
 import { LoadingPage } from '@/components/shared/loading-spinner';
 import { EmptyState } from '@/components/shared/empty-state';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { LabOrderPatientInfo } from '@/components/shared/lab-order-patient-info';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -47,6 +49,7 @@ export default function LabOrdersPage() {
   const { data: patients } = useQuery<Patient[]>({
     queryKey: ['patients'],
     queryFn: () => api.get('/patients').then((r) => r.data),
+    enabled: user?.role === 'doctor',
   });
 
   const createMutation = useMutation({
@@ -69,9 +72,30 @@ export default function LabOrdersPage() {
     onError: () => toast.error('Failed to update lab order'),
   });
 
+  const uploadFileMutation = useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api.post(`/lab-orders/${id}/result-file`, formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lab-orders'] });
+      toast.success('Result file uploaded');
+    },
+    onError: () => toast.error('Failed to upload result file'),
+  });
+
   const pending = (labOrders || []).filter((o) => o.status === 'ordered' || o.status === 'sample_collected');
   const inProgress = (labOrders || []).filter((o) => o.status === 'in_progress');
   const completed = (labOrders || []).filter((o) => o.status === 'completed');
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabValue = ['pending', 'in-progress', 'completed'].includes(searchParams.get('filter') || '')
+    ? (searchParams.get('filter') as string)
+    : 'pending';
+  const setTabValue = (value: string) => {
+    setSearchParams(value === 'pending' ? {} : { filter: value });
+  };
 
   if (isLoading) return <LoadingPage />;
 
@@ -97,7 +121,7 @@ export default function LabOrdersPage() {
           description="Order lab tests during patient visits"
         />
       ) : (
-        <Tabs defaultValue="pending">
+        <Tabs value={tabValue} onValueChange={setTabValue}>
           <TabsList>
             <TabsTrigger value="pending">Pending ({pending.length})</TabsTrigger>
             <TabsTrigger value="in-progress">In Progress ({inProgress.length})</TabsTrigger>
@@ -151,6 +175,8 @@ export default function LabOrdersPage() {
             <UpdateLabOrderForm
               order={updatingOrder}
               onSubmit={(data) => updateMutation.mutate({ id: updatingOrder.id, data })}
+              onUploadFile={(file) => uploadFileMutation.mutate({ id: updatingOrder.id, file })}
+              uploading={uploadFileMutation.isPending}
               loading={updateMutation.isPending}
             />
           )}
@@ -162,6 +188,25 @@ export default function LabOrdersPage() {
 
 function LabOrderCard({ order, onUpdate, user }: { order: LabOrder; onUpdate: (o: LabOrder) => void; user: any }) {
   const canUpdate = user?.role === 'lab_tech' || user?.role === 'admin';
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadBlob = async (url: string, filename: string) => {
+    setDownloading(true);
+    try {
+      const res = await api.get(url, { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast.error('Failed to download');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="pt-4">
@@ -171,15 +216,43 @@ function LabOrderCard({ order, onUpdate, user }: { order: LabOrder; onUpdate: (o
             <p className="text-xs text-muted-foreground">
               {new Date(order.createdAt).toLocaleDateString()}
             </p>
+            <LabOrderPatientInfo order={order} />
             {order.resultText && <p className="text-sm mt-1">{order.resultText}</p>}
-          </div>
-          <div className="flex items-center gap-2">
-            <StatusBadge status={order.status} />
-            {canUpdate && order.status !== 'completed' && (
-              <Button size="sm" variant="outline" onClick={() => onUpdate(order)}>
-                Update
-              </Button>
+            {order.resultPdfUrl && (
+              <p className="text-xs text-muted-foreground mt-1">Result file attached</p>
             )}
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <StatusBadge status={order.status} />
+              {canUpdate && order.status !== 'completed' && (
+                <Button size="sm" variant="outline" onClick={() => onUpdate(order)}>
+                  Update
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {order.resultPdfUrl && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={downloading}
+                  onClick={() => downloadBlob(`/lab-orders/${order.id}/result-file`, `result-${order.id}.bin`)}
+                >
+                  Result File
+                </Button>
+              )}
+              {(order.status === 'completed' || order.resultText) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={downloading}
+                  onClick={() => downloadBlob(`/lab-orders/${order.id}/pdf`, `lab-report-${order.id}.pdf`)}
+                >
+                  PDF Report
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
@@ -244,14 +317,19 @@ function CreateLabOrderForm({
 function UpdateLabOrderForm({
   order,
   onSubmit,
+  onUploadFile,
+  uploading,
   loading,
 }: {
   order: LabOrder;
   onSubmit: (data: any) => void;
+  onUploadFile: (file: File) => void;
+  uploading: boolean;
   loading: boolean;
 }) {
   const [status, setStatus] = useState(order.status);
   const [resultText, setResultText] = useState(order.resultText || '');
+  const [resultFile, setResultFile] = useState<File | null>(null);
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ status, resultText: resultText || undefined }); }} className="space-y-4">
@@ -271,6 +349,23 @@ function UpdateLabOrderForm({
       <div className="space-y-1.5">
         <Label>Result Text</Label>
         <Textarea value={resultText} onChange={(e) => setResultText(e.target.value)} placeholder="Enter test results..." />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Result File</Label>
+        <Input
+          type="file"
+          accept="image/*,application/pdf,.pdf,.png,.jpg,.jpeg"
+          onChange={(e) => setResultFile(e.target.files?.[0] ?? null)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={uploading || !resultFile}
+          onClick={() => resultFile && onUploadFile(resultFile)}
+        >
+          {uploading ? 'Uploading...' : 'Upload File'}
+        </Button>
       </div>
       <DialogFooter>
         <Button type="submit" disabled={loading}>{loading ? 'Updating...' : 'Update Order'}</Button>

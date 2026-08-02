@@ -57,6 +57,9 @@ api.interceptors.response.use(
           { refreshToken, userId: user.id },
         );
         localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
         originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
         processQueue(null);
         return api(originalRequest);

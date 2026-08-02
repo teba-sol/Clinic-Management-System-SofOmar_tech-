@@ -73,7 +73,20 @@ export default function InvoicesPage() {
   if (isLoading) return <LoadingPage />;
 
   const pending = (invoices || []).filter((i) => i.status === 'pending');
+  const partial = (invoices || []).filter((i) => i.status === 'partial');
   const paid = (invoices || []).filter((i) => i.status === 'paid');
+
+  const renderGroup = (group: Invoice[], title: string) =>
+    group.length > 0 && (
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{title} ({group.length})</h3>
+        <div className="grid gap-3">
+          {group.map((inv) => (
+            <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} onView={setViewingInvoice} />
+          ))}
+        </div>
+      </div>
+    );
 
   return (
     <div>
@@ -96,26 +109,9 @@ export default function InvoicesPage() {
         />
       ) : (
         <div className="space-y-6">
-          {pending.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Pending ({pending.length})</h3>
-              <div className="grid gap-3">
-                {pending.map((inv) => (
-                  <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} onView={setViewingInvoice} />
-                ))}
-              </div>
-            </div>
-          )}
-          {paid.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Paid ({paid.length})</h3>
-              <div className="grid gap-3">
-                {paid.map((inv) => (
-                  <InvoiceCard key={inv.id} invoice={inv} onPay={setPayingInvoice} onView={setViewingInvoice} />
-                ))}
-              </div>
-            </div>
-          )}
+          {renderGroup(pending, 'Pending')}
+          {renderGroup(partial, 'Partially Paid')}
+          {renderGroup(paid, 'Paid')}
         </div>
       )}
 
@@ -179,6 +175,11 @@ function InvoiceCard({ invoice, onPay, onView }: { invoice: Invoice; onPay: (inv
               {Number(invoice.amountPaid) > 0 && (
                 <p className="text-xs text-muted-foreground">Paid: ${invoice.amountPaid}</p>
               )}
+              {invoice.status === 'partial' && (
+                <p className="text-xs text-amber-600 font-medium">
+                  Remaining: ${(Number(invoice.totalAmount) - Number(invoice.amountPaid)).toFixed(2)}
+                </p>
+              )}
             </div>
             <StatusBadge status={invoice.status} />
             <Button size="sm" variant="ghost" onClick={() => onView(invoice)} title="View details">
@@ -214,8 +215,9 @@ function CreateInvoiceForm({
   });
 
   const [patientId, setPatientId] = useState(preselectedPatientId || '');
-  const [items, setItems] = useState<{ description: string; quantity: number; unitPrice: number }[]>([
-    { description: '', quantity: 1, unitPrice: 0 },
+  const [visitId, setVisitId] = useState<string | undefined>(undefined);
+  const [items, setItems] = useState<{ serviceId: string | null; description: string; quantity: number; unitPrice: number }[]>([
+    { serviceId: null, description: '', quantity: 1, unitPrice: 0 },
   ]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
@@ -235,9 +237,10 @@ function CreateInvoiceForm({
     if (!patientId) return;
     setLoadingSuggestions(true);
     try {
-      const data = await api.get(`/invoices/suggestions/${patientId}`).then((r) => r.data);
+      const data = await api.get(`/invoices/auto-fill/${patientId}`).then((r) => r.data);
       if (data.items && data.items.length > 0) {
-        setItems(data.items.map((i: any) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })));
+        setItems(data.items.map((i: any) => ({ serviceId: i.serviceId ?? null, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })));
+        setVisitId(data.visitId ?? undefined);
         toast.success(`Loaded ${data.items.length} item(s) from visit${data.hasVisit ? '' : ' (no recent visit)'}`);
       } else {
         toast('No suggestions found for this patient');
@@ -249,17 +252,23 @@ function CreateInvoiceForm({
     }
   };
 
-  const addItem = () => setItems([...items, { description: '', quantity: 1, unitPrice: 0 }]);
+  const addItem = () => setItems([...items, { serviceId: null, description: '', quantity: 1, unitPrice: 0 }]);
   const removeItem = (i: number) => items.length > 1 && setItems(items.filter((_, idx) => idx !== i));
   const updateItem = (i: number, field: string, value: any) => {
     const updated = [...items];
     (updated[i] as any)[field] = field === 'quantity' || field === 'unitPrice' ? Number(value) : value;
     setItems(updated);
   };
-  const selectService = (i: number, serviceId: string) => {
+  const selectService = (i: number, serviceId: string | null) => {
+    const updated = [...items];
+    if (!serviceId) {
+      updated[i].serviceId = null;
+      setItems(updated);
+      return;
+    }
     const svc = services?.find((s) => s.id === serviceId);
     if (!svc) return;
-    const updated = [...items];
+    updated[i].serviceId = svc.id;
     updated[i].description = svc.name;
     updated[i].unitPrice = Number(svc.defaultPrice);
     setItems(updated);
@@ -268,7 +277,7 @@ function CreateInvoiceForm({
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ patientId, items }); }} className="space-y-4">
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ patientId, visitId, items }); }} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Patient *</Label>
         <SearchSelect
@@ -300,26 +309,42 @@ function CreateInvoiceForm({
           <div key={i} className="p-3 rounded-xl border space-y-2 bg-muted/20">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-primary">Item {i + 1}</span>
-              {items.length > 1 && (
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(i)} className="size-6 text-destructive">
-                  <Trash2 className="size-3" />
-                </Button>
-              )}
+              <div className="flex items-center gap-1">
+                {item.serviceId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => selectService(i, null)}
+                    className="h-6 px-2 text-xs text-muted-foreground"
+                  >
+                    Custom item
+                  </Button>
+                )}
+                {items.length > 1 && (
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(i)} className="size-6 text-destructive">
+                    <Trash2 className="size-3" />
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Service</Label>
               <SearchSelect
-                items={(services || []).map((s) => ({
-                  value: s.id,
-                  label: s.name,
-                  subtitle: `$${s.defaultPrice} — ${s.category}`,
-                }))}
-                value=""
-                onValueChange={(v: string | null) => selectService(i, v ?? "")}
+                items={[
+                  { value: 'custom', label: 'Custom item (free text)', subtitle: 'Set your own description and price' },
+                  ...(services || []).map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    subtitle: `$${s.defaultPrice} — ${s.category}`,
+                  })),
+                ]}
+                value={item.serviceId ?? ''}
+                onValueChange={(v: string | null) => selectService(i, v === 'custom' ? null : (v ?? null))}
                 placeholder="Select a service"
               />
             </div>
-            <Input placeholder="Description" value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} required />
+            <Input placeholder="Description" value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} required disabled={!!item.serviceId} />
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Qty</Label>
@@ -327,7 +352,7 @@ function CreateInvoiceForm({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Unit Price ($)</Label>
-                <Input type="number" min={0} step={0.01} value={item.unitPrice} onChange={(e) => updateItem(i, 'unitPrice', e.target.value)} required />
+                <Input type="number" min={0} step={0.01} value={item.unitPrice} onChange={(e) => updateItem(i, 'unitPrice', e.target.value)} required disabled={!!item.serviceId} />
               </div>
             </div>
           </div>

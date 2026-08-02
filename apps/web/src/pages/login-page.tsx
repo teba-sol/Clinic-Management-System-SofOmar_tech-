@@ -34,11 +34,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Left Hero Panel */}
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden bg-gradient-to-br from-[oklch(0.45_0.18_175)] via-[oklch(0.50_0.16_170)] to-[oklch(0.42_0.14_180)]">
-        {/* Decorative circles */}
-        <div className="absolute -top-32 -left-32 size-96 rounded-full bg-white/5" />
-        <div className="absolute -bottom-20 -right-20 size-80 rounded-full bg-white/5" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full bg-white/[0.03]" />
+      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
+        <img
+          src="/landing/loginleftbanner.png"
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-900/60 to-brand-900/30" />
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between p-12 w-full text-white">

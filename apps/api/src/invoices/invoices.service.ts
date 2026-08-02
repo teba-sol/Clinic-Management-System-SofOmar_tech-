@@ -1,14 +1,36 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { db } from '../db';
-import { invoices, invoiceItems, services, visits, labOrders } from '../db/schema';
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { invoices, invoiceItems, services, visits, labOrders, prescriptions } from '../db/schema';
+import { eq, and, sql, desc } from 'drizzle-orm';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { PayInvoiceDto } from './dto/pay-invoice.dto';
 
 @Injectable()
 export class InvoicesService {
   async create(dto: CreateInvoiceDto) {
-    const total = dto.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const resolvedItems: { serviceId: string | null; description: string; quantity: number; unitPrice: string }[] = [];
+
+    for (const item of dto.items) {
+      if (item.serviceId) {
+        const [service] = await db.select().from(services).where(eq(services.id, item.serviceId));
+        if (!service) throw new BadRequestException(`Service ${item.serviceId} not found`);
+        resolvedItems.push({
+          serviceId: service.id,
+          description: service.name,
+          quantity: item.quantity,
+          unitPrice: Number(service.defaultPrice).toFixed(2),
+        });
+      } else {
+        resolvedItems.push({
+          serviceId: null,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice.toFixed(2),
+        });
+      }
+    }
+
+    const total = resolvedItems.reduce((sum, item) => sum + item.quantity * Number(item.unitPrice), 0);
 
     const [invoice] = await db
       .insert(invoices)
@@ -20,11 +42,12 @@ export class InvoicesService {
       .returning();
 
     await db.insert(invoiceItems).values(
-      dto.items.map((item) => ({
+      resolvedItems.map((item) => ({
         invoiceId: invoice.id,
+        serviceId: item.serviceId,
         description: item.description,
         quantity: item.quantity,
-        unitPrice: item.unitPrice.toFixed(2),
+        unitPrice: item.unitPrice,
       })),
     );
 
@@ -46,42 +69,75 @@ export class InvoicesService {
     return db.select().from(invoices).where(eq(invoices.patientId, patientId));
   }
 
-  async getSuggestions(patientId: string) {
-    const items: { description: string; quantity: number; unitPrice: number; category: string }[] = [];
-
-    const consultationServices = await db
-      .select()
-      .from(services)
-      .where(and(eq(services.category, 'consultation'), eq(services.active, true)));
-    for (const s of consultationServices) {
-      items.push({ description: s.name, quantity: 1, unitPrice: Number(s.defaultPrice), category: 'consultation' });
-    }
-
-    const completedLabs = await db
-      .select()
-      .from(labOrders)
-      .where(and(eq(labOrders.patientId, patientId), eq(labOrders.status, 'completed')));
-    for (const lab of completedLabs) {
-      const matchingService = await db
-        .select()
-        .from(services)
-        .where(and(eq(services.category, 'lab'), sql`LOWER(${services.name}) LIKE LOWER(${'%' + lab.testType + '%'})`, eq(services.active, true)))
-        .then((r) => r[0]);
-      items.push({
-        description: `Lab: ${lab.testType}`,
-        quantity: 1,
-        unitPrice: matchingService ? Number(matchingService.defaultPrice) : 0,
-        category: 'lab',
-      });
-    }
+  async getAutoFill(patientId: string) {
+    const items: { serviceId: string | null; description: string; quantity: number; unitPrice: number; category: string }[] = [];
 
     const recentVisits = await db
       .select()
       .from(visits)
-      .where(and(eq(visits.patientId, patientId), sql`${visits.createdAt} >= NOW() - INTERVAL '30 days'`));
-    const hasVisit = recentVisits.length > 0;
+      .where(eq(visits.patientId, patientId))
+      .orderBy(desc(visits.createdAt));
 
-    return { items, hasVisit, visitCount: recentVisits.length };
+    let visit: typeof recentVisits[number] | undefined;
+    for (const v of recentVisits) {
+      const billed = await db
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(and(eq(invoices.visitId, v.id), eq(invoices.status, 'paid')));
+      if (billed.length === 0) {
+        visit = v;
+        break;
+      }
+    }
+
+    const consultation = await db
+      .select()
+      .from(services)
+      .where(and(eq(services.category, 'consultation'), eq(services.active, true)))
+      .orderBy(services.name)
+      .then((r) => r[0]);
+    if (consultation) {
+      items.push({ serviceId: consultation.id, description: consultation.name, quantity: 1, unitPrice: Number(consultation.defaultPrice), category: 'consultation' });
+    }
+
+    if (visit) {
+      const visitPrescriptions = await db.select().from(prescriptions).where(eq(prescriptions.visitId, visit.id));
+      const dispensing = await db
+        .select()
+        .from(services)
+        .where(and(eq(services.active, true), sql`(LOWER(${services.name}) LIKE '%dispens%' OR LOWER(${services.name}) LIKE '%prescription%')`))
+        .orderBy(services.name)
+        .then((r) => r[0]);
+      if (dispensing) {
+        visitPrescriptions.forEach(() => {
+          items.push({ serviceId: dispensing.id, description: dispensing.name, quantity: 1, unitPrice: Number(dispensing.defaultPrice), category: dispensing.category });
+        });
+      }
+
+      const visitLabs = await db
+        .select()
+        .from(labOrders)
+        .where(and(eq(labOrders.visitId, visit.id), sql`${labOrders.status} <> 'cancelled'`));
+      for (const lab of visitLabs) {
+        const matchingService = await db
+          .select()
+          .from(services)
+          .where(and(eq(services.category, 'lab'), sql`LOWER(${services.name}) LIKE ${'%' + lab.testType.toLowerCase() + '%'}`, eq(services.active, true)))
+          .orderBy(services.name)
+          .then((r) => r[0]);
+        if (matchingService) {
+          items.push({
+            serviceId: matchingService.id,
+            description: matchingService.name,
+            quantity: 1,
+            unitPrice: Number(matchingService.defaultPrice),
+            category: 'lab',
+          });
+        }
+      }
+    }
+
+    return { visitId: visit?.id ?? null, hasVisit: !!visit, items };
   }
 
   async pay(id: string, dto: PayInvoiceDto) {
