@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { cachedGet } from '@/lib/offline-queue';
 import { useAuth } from '@/context/auth-context';
 import { usePatientContext } from '@/context/patient-context';
 import { PageHeader } from '@/components/shared/page-header';
@@ -18,10 +19,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Pill, Plus, Download, Trash2 } from 'lucide-react';
+import { Pill, Plus, Download, Trash2, Calculator, Check, Ban } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Prescription, Patient, Visit } from '@/types';
-import type { PrescriptionItem } from '@/types';
+import type { Prescription, Patient, Visit, Vital } from '@/types';
+import type { PrescriptionItem, PrescriptionStatus } from '@/types';
 
 export default function PrescriptionsPage() {
   const { user } = useAuth();
@@ -68,6 +69,24 @@ export default function PrescriptionsPage() {
     }
   };
 
+  const canDispense = user?.role === 'admin' || user?.role === 'nurse' || user?.role === 'cashier';
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: PrescriptionStatus }) =>
+      api.patch(`/prescriptions/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
+      toast.success('Prescription status updated');
+    },
+    onError: () => toast.error('Failed to update prescription status'),
+  });
+
+  const statusStyles: Record<PrescriptionStatus, { label: string; className: string }> = {
+    pending: { label: 'Pending', className: 'bg-amber-100 text-amber-800' },
+    dispensed: { label: 'Dispensed', className: 'bg-emerald-100 text-emerald-800' },
+    cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
+  };
+
   if (isLoading) return <LoadingPage />;
 
   return (
@@ -103,11 +122,25 @@ export default function PrescriptionsPage() {
                       {new Date(rx.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleDownloadPdf(rx.id)}>
-                    <Download className="size-3.5" />
-                    PDF
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        statusStyles[(rx.status as PrescriptionStatus) || 'pending'].className
+                      }`}
+                    >
+                      {statusStyles[(rx.status as PrescriptionStatus) || 'pending'].label}
+                    </span>
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => handleDownloadPdf(rx.id)}>
+                      <Download className="size-3.5" />
+                      PDF
+                    </Button>
+                  </div>
                 </div>
+                {rx.status === 'dispensed' && rx.dispensedAt && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Dispensed on {new Date(rx.dispensedAt).toLocaleString()}
+                  </p>
+                )}
                 <div className="space-y-2">
                   {(rx.items as PrescriptionItem[]).map((item, i) => (
                     <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/50">
@@ -123,6 +156,29 @@ export default function PrescriptionsPage() {
                     </div>
                   ))}
                 </div>
+                {canDispense && rx.status === 'pending' && (
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={statusMutation.isPending}
+                      onClick={() => statusMutation.mutate({ id: rx.id, status: 'dispensed' })}
+                    >
+                      <Check className="size-3.5" />
+                      Mark Dispensed
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-red-600"
+                      disabled={statusMutation.isPending}
+                      onClick={() => statusMutation.mutate({ id: rx.id, status: 'cancelled' })}
+                    >
+                      <Ban className="size-3.5" />
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -168,16 +224,39 @@ function PrescriptionForm({
   const [items, setItems] = useState<PrescriptionItem[]>([
     { drugName: '', dosage: '', frequency: '', route: '', duration: '' },
   ]);
+  const [calc, setCalc] = useState<{ mgPerKg: string; weightKg: string }[]>([
+    { mgPerKg: '', weightKg: '' },
+  ]);
+
+  const { data: patientVitals } = useQuery<Vital[]>({
+    queryKey: ['vitals', 'patient', patientId],
+    queryFn: () =>
+      cachedGet<Vital[]>(`/vitals/patient/${patientId}`)
+        .then((r) => r.data)
+        .catch(() => []),
+    enabled: !!patientId,
+  });
+
+  useEffect(() => {
+    const latestWeight = patientVitals && patientVitals.length > 0
+      ? patientVitals[patientVitals.length - 1]?.weight ?? ''
+      : '';
+    if (latestWeight) {
+      setCalc((prev) => prev.map((c) => ({ ...c, weightKg: latestWeight })));
+    }
+  }, [patientVitals]);
 
   const filteredVisits = patientId ? visits.filter((v) => v.patientId === patientId) : [];
 
   const addItem = () => {
     setItems([...items, { drugName: '', dosage: '', frequency: '', route: '', duration: '' }]);
+    setCalc([...calc, { mgPerKg: '', weightKg: calc[calc.length - 1]?.weightKg || '' }]);
   };
 
   const removeItem = (index: number) => {
     if (items.length > 1) {
       setItems(items.filter((_, i) => i !== index));
+      setCalc(calc.filter((_, i) => i !== index));
     }
   };
 
@@ -185,6 +264,24 @@ function PrescriptionForm({
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
     setItems(updated);
+  };
+
+  const updateCalc = (index: number, field: 'mgPerKg' | 'weightKg', value: string) => {
+    const updated = [...calc];
+    updated[index] = { ...updated[index], [field]: value };
+    setCalc(updated);
+  };
+
+  const runDosageCalc = (index: number) => {
+    const mgPerKg = parseFloat(calc[index].mgPerKg);
+    const weightKg = parseFloat(calc[index].weightKg);
+    if (isNaN(mgPerKg) || isNaN(weightKg) || mgPerKg <= 0 || weightKg <= 0) {
+      toast.error('Enter valid mg/kg dose and weight');
+      return;
+    }
+    const doseMg = Math.round(mgPerKg * weightKg);
+    updateItem(index, 'dosage', `${doseMg}mg`);
+    toast.success(`Calculated: ${doseMg}mg per dose`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -276,6 +373,26 @@ function PrescriptionForm({
             <div className="space-y-1">
               <Label className="text-xs">Duration *</Label>
               <Input value={item.duration} onChange={(e) => updateItem(i, 'duration', e.target.value)} placeholder="e.g. 7 days" required />
+            </div>
+            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2">
+                <Calculator className="size-3.5" />
+                Weight-based dose calculator
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Dose (mg/kg)</Label>
+                  <Input type="number" min={0} step="any" value={calc[i].mgPerKg} onChange={(e) => updateCalc(i, 'mgPerKg', e.target.value)} placeholder="e.g. 15" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Weight (kg)</Label>
+                  <Input type="number" min={0} step="any" value={calc[i].weightKg} onChange={(e) => updateCalc(i, 'weightKg', e.target.value)} placeholder="e.g. 20" />
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-2 gap-1" onClick={() => runDosageCalc(i)}>
+                <Calculator className="size-3.5" />
+                Calculate dose
+              </Button>
             </div>
           </div>
         ))}

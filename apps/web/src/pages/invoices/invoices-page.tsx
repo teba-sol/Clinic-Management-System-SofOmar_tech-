@@ -19,7 +19,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Receipt, Plus, Trash2, CreditCard, Printer, Eye, Sparkles } from 'lucide-react';
+import { Receipt, Plus, Trash2, CreditCard, Printer, Eye, Sparkles, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Invoice, Patient, Service } from '@/types';
 
@@ -492,6 +492,124 @@ function InvoiceDetailView({ invoice }: { invoice: Invoice }) {
     printWindow.document.close();
   };
 
+  const handlePrintClaim = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const patient = detail?.patient;
+    const due = (Number(invoice.totalAmount) - Number(invoice.amountPaid)).toFixed(2);
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Claim Invoice ${invoice.id.slice(0, 8).toUpperCase()}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; margin: 0; padding: 24px; color: #111; }
+          .page { max-width: 720px; margin: 0 auto; }
+          .letterhead { border-bottom: 3px solid #0f766e; padding-bottom: 12px; margin-bottom: 16px; }
+          .letterhead h1 { margin: 0; font-size: 22px; color: #0f766e; letter-spacing: 0.5px; }
+          .letterhead p { margin: 2px 0; font-size: 11px; color: #555; }
+          .title-bar { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+          .title-bar h2 { margin: 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: #0f766e; }
+          .title-bar p { margin: 0; font-size: 11px; color: #555; }
+          .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+          .box { border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
+          .box h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #555; }
+          .box p { margin: 2px 0; font-size: 12px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+          th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; background: #f0fdfa; color: #0f766e; border: 1px solid #ddd; padding: 6px 8px; }
+          td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; }
+          td.right, th.right { text-align: right; }
+          .totals { margin-left: auto; width: 260px; }
+          .totals td { border: none; padding: 3px 8px; }
+          .totals .grand { font-weight: bold; font-size: 14px; border-top: 2px solid #0f766e; }
+          .payment { margin: 12px 0; padding: 10px 12px; border-radius: 6px; font-size: 12px; }
+          .payment.paid { background: #ecfdf5; border: 1px solid #10b981; }
+          .payment.due { background: #fffbeb; border: 1px solid #f59e0b; }
+          .signatures { display: flex; justify-content: space-between; margin-top: 48px; }
+          .signatures .sig { width: 40%; }
+          .signatures .sig p { margin: 0 0 40px; font-size: 11px; color: #555; border-bottom: 1px solid #999; padding-bottom: 4px; }
+          .footer { margin-top: 32px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 10px; color: #777; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="page">
+          <div class="letterhead">
+            <h1>${import.meta.env.VITE_CLINIC_NAME || 'SofOmar Clinic'}</h1>
+            <p>${import.meta.env.VITE_CLINIC_ADDRESS || ''}</p>
+            <p>Tel: ${import.meta.env.VITE_CLINIC_PHONE || ''}</p>
+          </div>
+          <div class="title-bar">
+            <h2>Medical Claim Invoice</h2>
+            <p>Issue date: ${new Date(invoice.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+          </div>
+          <div class="meta">
+            <div class="box">
+              <h3>Bill To</h3>
+              <p><strong>${patient ? patient.firstName + ' ' + patient.lastName : 'N/A'}</strong></p>
+              <p>MRN: ${patient?.mrn ?? 'N/A'}</p>
+              <p>${patient?.phone ? 'Phone: ' + patient.phone : ''}</p>
+              <p>${patient?.gender ? 'Gender: ' + patient.gender : ''}</p>
+            </div>
+            <div class="box">
+              <h3>Invoice Details</h3>
+              <p>Invoice No: ${invoice.id.slice(0, 8).toUpperCase()}</p>
+              <p>Status: ${invoice.status.toUpperCase()}</p>
+              <p>Payment: ${(invoice.paymentMethod || 'N/A').replace('_', ' ')}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Description</th>
+                <th class="right">Qty</th>
+                <th class="right">Unit Price</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(detail?.items || []).map((item: any, i: number) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${item.description}</td>
+                  <td class="right">${item.quantity}</td>
+                  <td class="right">$${Number(item.unitPrice).toFixed(2)}</td>
+                  <td class="right">$${(item.quantity * Number(item.unitPrice)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <table class="totals">
+            <tr><td>Subtotal</td><td class="right">$${invoice.totalAmount}</td></tr>
+            <tr><td>Amount Paid</td><td class="right">$${invoice.amountPaid}</td></tr>
+            <tr class="grand"><td>${Number(invoice.amountPaid) >= Number(invoice.totalAmount) ? 'Total Paid' : 'Balance Due'}</td><td class="right">$${Number(invoice.amountPaid) >= Number(invoice.totalAmount) ? invoice.totalAmount : due}</td></tr>
+          </table>
+          <div class="payment ${Number(invoice.amountPaid) >= Number(invoice.totalAmount) ? 'paid' : 'due'}">
+            <strong>${Number(invoice.amountPaid) >= Number(invoice.totalAmount) ? 'PAID IN FULL' : 'AMOUNT DUE: $' + due}</strong> — ${
+              Number(invoice.amountPaid) >= Number(invoice.totalAmount) ? 'Received via ' + (invoice.paymentMethod || 'N/A').replace('_', ' ') + ' on ' + new Date(invoice.updatedAt || invoice.createdAt).toLocaleDateString() : 'Please settle the balance above.'
+            }
+          </div>
+          <div class="signatures">
+            <div class="sig">
+              <p>Prepared By</p>
+              <p>Signature / Stamp</p>
+            </div>
+            <div class="sig">
+              <p>Approved By</p>
+              <p>Signature / Stamp</p>
+            </div>
+          </div>
+          <div class="footer">
+            <p>This is a computer-generated claim invoice. For billing inquiries, contact ${import.meta.env.VITE_CLINIC_PHONE || 'the clinic'}.</p>
+            <p>${import.meta.env.VITE_CLINIC_NAME || 'SofOmar Clinic'} — Clinic Management System</p>
+          </div>
+        </div>
+        <script>window.print();window.close();<\/script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   if (isFetching) return <div className="text-sm text-muted-foreground text-center py-8">Loading...</div>;
 
   return (
@@ -545,10 +663,16 @@ function InvoiceDetailView({ invoice }: { invoice: Invoice }) {
         </div>
       )}
 
-      <Button onClick={handlePrint} className="w-full gap-2">
-        <Printer className="size-4" />
-        Print Receipt
-      </Button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Button onClick={handlePrintClaim} variant="outline" className="gap-2">
+          <FileText className="size-4" />
+          Print Claim Invoice
+        </Button>
+        <Button onClick={handlePrint} className="gap-2">
+          <Printer className="size-4" />
+          Print Receipt
+        </Button>
+      </div>
     </div>
   );
 }

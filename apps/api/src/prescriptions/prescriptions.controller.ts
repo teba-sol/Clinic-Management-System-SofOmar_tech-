@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Req, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { PrescriptionsService } from './prescriptions.service';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
@@ -27,6 +27,12 @@ export class PrescriptionsController {
   @Roles('doctor', 'nurse', 'admin')
   findByPatient(@Param('patientId') patientId: string) {
     return this.prescriptionsService.findByPatient(patientId);
+  }
+
+  @Patch(':id/status')
+  @Roles('admin', 'nurse', 'cashier')
+  updateStatus(@Param('id') id: string, @Body('status') status: string, @Req() req: any) {
+    return this.prescriptionsService.updateStatus(id, status, req.user.id);
   }
 
   @Get(':id/pdf')

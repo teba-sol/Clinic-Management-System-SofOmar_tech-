@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { usePatientContext } from '@/context/patient-context';
-import { useSocket } from '@/hooks/use-socket';
+import { useSocket, useLabResults } from '@/hooks/use-socket';
 import { EmptyState } from '@/components/shared/empty-state';
 import { getGreeting } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +21,8 @@ import {
   WifiOff,
   AlertCircle,
   RotateCw,
+  FlaskConical,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Appointment, Patient, Visit } from '@/types';
@@ -70,6 +72,13 @@ export default function DoctorDashboardPage() {
   const [filterTab, setFilterTab] = useState<FilterTab>('waiting');
 
   const { queue, connected } = useSocket(user?.id ?? null);
+  const { labResults, lastLabResult, clearLabResults } = useLabResults();
+
+  useEffect(() => {
+    if (lastLabResult) {
+      toast.info(`Lab result ready for ${lastLabResult.patientName}`);
+    }
+  }, [lastLabResult]);
 
   const { data: allVisits } = useQuery<Visit[]>({
     queryKey: ['all-visits'],
@@ -246,6 +255,29 @@ export default function DoctorDashboardPage() {
           </span>
         )}
       </div>
+
+      {labResults.length > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <FlaskConical className="size-4 text-primary" />
+            <p className="text-xs font-semibold text-primary">Lab results ready</p>
+            <button
+              onClick={clearLabResults}
+              className="ml-auto p-1 rounded hover:bg-primary/10 text-muted-foreground"
+              aria-label="Dismiss lab result notifications"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+          <div className="space-y-1">
+            {labResults.slice(0, 3).map((r) => (
+              <p key={r.labOrderId} className="text-xs text-muted-foreground">
+                {r.patientName} — result available
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

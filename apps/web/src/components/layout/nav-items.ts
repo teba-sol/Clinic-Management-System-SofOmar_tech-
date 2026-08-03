@@ -103,7 +103,7 @@ export const navSections: NavSection[] = [
         label: 'Prescriptions',
         href: '/prescriptions',
         icon: Pill,
-        roles: ['admin', 'doctor', 'nurse'],
+        roles: ['admin', 'doctor', 'nurse', 'cashier'],
       },
       {
         key: 'labOrders',

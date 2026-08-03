@@ -14,8 +14,8 @@ import {
   Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { createReadStream, existsSync } from 'fs';
-import { basename, join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { basename, extname, join } from 'path';
 import type { Response } from 'express';
 import { LabOrdersService } from './lab-orders.service';
 import { CreateLabOrderDto } from './dto/create-lab-order.dto';
@@ -25,6 +25,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { labResultFileStorage, UPLOADS_ROOT } from './upload.config';
 import { generateLabReportPdf } from './utils/generate-lab-report-pdf';
+import { decryptFile, encryptFile } from './utils/file-crypto';
 
 @Controller('lab-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -84,7 +85,16 @@ export class LabOrdersController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    return this.labOrdersService.updateResultFile(id, file.filename);
+    if (file.size > 5 * 1024 * 1024) {
+      throw new BadRequestException('File exceeds 5MB limit');
+    }
+    const safeExt = extname(file.originalname).toLowerCase() || '.bin';
+    const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`;
+    if (!existsSync(UPLOADS_ROOT)) {
+      mkdirSync(UPLOADS_ROOT, { recursive: true });
+    }
+    writeFileSync(join(UPLOADS_ROOT, filename), encryptFile(file.buffer));
+    return this.labOrdersService.updateResultFile(id, filename);
   }
 
   @Get(':id/result-file')
@@ -100,8 +110,17 @@ export class LabOrdersController {
     const filePath = join(UPLOADS_ROOT, safeName);
     if (!existsSync(filePath))
       throw new NotFoundException('Result file missing');
-    res.setHeader('Content-Type', 'application/octet-stream');
-    return new StreamableFile(createReadStream(filePath), {
+
+    const decrypted = decryptFile(readFileSync(filePath));
+    const ext = extname(safeName).toLowerCase();
+    const contentType =
+      ext === '.pdf'
+        ? 'application/pdf'
+        : ['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)
+          ? `image/${ext.slice(1)}`
+          : 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    return new StreamableFile(decrypted, {
       disposition: `attachment; filename="${safeName}"`,
     });
   }

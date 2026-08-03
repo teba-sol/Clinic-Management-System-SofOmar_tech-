@@ -167,6 +167,12 @@ export class AppointmentsService {
     }
 
     const updateData: Record<string, unknown> = { status: status as any };
+    if (status === 'checked_in' && !existing.checkedInAt) {
+      updateData.checkedInAt = new Date();
+    }
+    if (status === 'in_progress' && !existing.startedAt) {
+      updateData.startedAt = new Date();
+    }
     if (existing.status === 'in_progress' && status === 'triaged') {
       updateData.returnedForRecheck = true;
     }

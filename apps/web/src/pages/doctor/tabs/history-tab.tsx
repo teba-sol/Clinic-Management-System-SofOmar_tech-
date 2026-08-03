@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { cachedGet } from '@/lib/offline-queue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/shared/status-badge';
@@ -31,8 +32,7 @@ export function HistoryTab({ patientId }: HistoryTabProps) {
   } = useQuery<Visit[]>({
     queryKey: ['patient-visits', patientId],
     queryFn: () =>
-      api
-        .get(`/visits/patient/${patientId}`)
+      cachedGet<Visit[]>(`/visits/patient/${patientId}`)
         .then((r) => r.data)
         .catch(() => []),
   });
@@ -43,8 +43,7 @@ export function HistoryTab({ patientId }: HistoryTabProps) {
   } = useQuery<Prescription[]>({
     queryKey: ['patient-prescriptions', patientId],
     queryFn: () =>
-      api
-        .get(`/prescriptions/patient/${patientId}`)
+      cachedGet<Prescription[]>(`/prescriptions/patient/${patientId}`)
         .then((r) => r.data)
         .catch(() => []),
   });
@@ -55,8 +54,7 @@ export function HistoryTab({ patientId }: HistoryTabProps) {
   } = useQuery<LabOrder[]>({
     queryKey: ['patient-lab-orders', patientId],
     queryFn: () =>
-      api
-        .get(`/lab-orders/patient/${patientId}`)
+      cachedGet<LabOrder[]>(`/lab-orders/patient/${patientId}`)
         .then((r) => r.data)
         .catch(() => []),
   });

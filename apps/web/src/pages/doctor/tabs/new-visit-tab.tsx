@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useOffline } from '@/context/offline-context';
-import { enqueue } from '@/lib/offline-queue';
+import { enqueue, cachedGet } from '@/lib/offline-queue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,7 +56,7 @@ export function NewVisitTab({
 
   const { data: allPatientVisits } = useQuery<Visit[]>({
     queryKey: ['patient-visits', patientId],
-    queryFn: () => api.get(`/visits/patient/${patientId}`).then((r) => r.data).catch(() => []),
+    queryFn: () => cachedGet<Visit[]>(`/visits/patient/${patientId}`).then((r) => r.data).catch(() => []),
     enabled: !!patientId,
   });
 
@@ -640,22 +640,13 @@ function DiagnosisCodeSearch({
 function VitalsCard({ appointmentId }: { appointmentId: string }) {
   const { data: vitals, isLoading } = useQuery<Vital[]>({
     queryKey: ['vitals', 'appointment', appointmentId],
-    queryFn: () => api.get(`/vitals/appointment/${appointmentId}`).then((r) => r.data),
+    queryFn: () => cachedGet<Vital[]>(`/vitals/appointment/${appointmentId}`).then((r) => r.data),
     enabled: !!appointmentId,
   });
 
   const latest = vitals && vitals.length > 0 ? vitals[vitals.length - 1] : null;
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="pt-4 pb-4">
-          <Skeleton className="h-4 w-24 mb-2" />
-          <Skeleton className="h-16 w-full rounded-lg" />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (isLoading) return null;
 
   if (!latest) return null;
 

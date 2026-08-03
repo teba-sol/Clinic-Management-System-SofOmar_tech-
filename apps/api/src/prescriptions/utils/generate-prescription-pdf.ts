@@ -3,8 +3,12 @@ import { Writable } from 'stream';
 
 interface PrescriptionPdfData {
   patientName: string;
+  patientMrn: string;
   doctorName: string;
   date: string;
+  clinicName: string;
+  clinicAddress: string;
+  clinicPhone: string;
   items: { drugName: string; dosage: string; frequency: string; route: string; duration: string }[];
 }
 
@@ -22,11 +26,28 @@ export function generatePrescriptionPdf(data: PrescriptionPdfData): Promise<Buff
 
     doc.pipe(stream);
 
-    doc.fontSize(20).text('Clinic Management System', { align: 'center' });
-    doc.fontSize(12).text('Digital E-Prescription', { align: 'center' });
-    doc.moveDown(2);
+    // Letterhead
+    doc.fontSize(22).fillColor('#0f766e').text(data.clinicName, { align: 'center' });
+    doc.fontSize(10).fillColor('#475569').text(data.clinicAddress, { align: 'center' });
+    doc.fontSize(10).fillColor('#475569').text(`Tel: ${data.clinicPhone}`, { align: 'center' });
+    doc
+      .moveDown(0.5)
+      .fontSize(12)
+      .fillColor('#111827')
+      .text('Digital E-Prescription', { align: 'center' });
+    doc.moveDown(0.5);
 
-    doc.fontSize(11).text(`Patient: ${data.patientName}`);
+    // Divider
+    doc
+      .moveTo(50, doc.y)
+      .lineTo(doc.page.width - 50, doc.y)
+      .strokeColor('#0f766e')
+      .lineWidth(1.5)
+      .stroke();
+    doc.moveDown(1);
+
+    doc.fontSize(11).fillColor('#111827').text(`Patient: ${data.patientName}`);
+    doc.text(`MRN: ${data.patientMrn}`);
     doc.text(`Doctor: ${data.doctorName}`);
     doc.text(`Date: ${data.date}`);
     doc.moveDown(1);
@@ -41,7 +62,23 @@ export function generatePrescriptionPdf(data: PrescriptionPdfData): Promise<Buff
     });
 
     doc.moveDown(2);
-    doc.fontSize(10).text('This is a digitally generated prescription.', { align: 'center' });
+
+    // Doctor signature block
+    doc
+      .font('Helvetica-Oblique')
+      .fontSize(11)
+      .fillColor('#111827')
+      .text(data.doctorName, { align: 'right' });
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor('#6b7280')
+      .text('(physician signature)', { align: 'right' });
+    doc.moveDown(1.5);
+    doc
+      .fontSize(10)
+      .fillColor('#111827')
+      .text('Digitally generated electronic prescription.', { align: 'center' });
 
     doc.end();
 

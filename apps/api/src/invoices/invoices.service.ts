@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { db } from '../db';
-import { invoices, invoiceItems, services, visits, labOrders, prescriptions } from '../db/schema';
+import { invoices, invoiceItems, services, visits, labOrders, prescriptions, patients } from '../db/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { PayInvoiceDto } from './dto/pay-invoice.dto';
@@ -62,7 +62,8 @@ export class InvoicesService {
     const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
     if (!invoice) throw new NotFoundException('Invoice not found');
     const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, id));
-    return { ...invoice, items };
+    const [patient] = await db.select().from(patients).where(eq(patients.id, invoice.patientId));
+    return { ...invoice, items, patient: patient ?? null };
   }
 
   async findByPatient(patientId: string) {

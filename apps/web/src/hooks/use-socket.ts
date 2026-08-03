@@ -14,6 +14,42 @@ function getSocket(): Socket {
   return socket;
 }
 
+export interface LabResultNotification {
+  labOrderId: string;
+  patientId: string;
+  patientName: string;
+  status: string;
+  createdAt: string;
+}
+
+export function useLabResults() {
+  const [labResults, setLabResults] = useState<LabResultNotification[]>([]);
+  const [lastLabResult, setLastLabResult] = useState<LabResultNotification | null>(null);
+
+  useEffect(() => {
+    const s = getSocket();
+    s.connect();
+
+    const handleLabResult = (data: LabResultNotification) => {
+      setLastLabResult(data);
+      setLabResults((prev) => [data, ...prev].slice(0, 20));
+    };
+
+    s.on('lab:result', handleLabResult);
+
+    return () => {
+      s.off('lab:result', handleLabResult);
+    };
+  }, []);
+
+  const clearLabResults = useCallback(() => {
+    setLabResults([]);
+    setLastLabResult(null);
+  }, []);
+
+  return { labResults, lastLabResult, clearLabResults };
+}
+
 export function useSocket(doctorId: string | null) {
   const [queue, setQueue] = useState<Appointment[]>([]);
   const [connected, setConnected] = useState(false);

@@ -14,5 +14,7 @@ export const appointments = pgTable('appointments', {
   queueNumber: integer('queue_number').notNull(),
   status: appointmentStatusEnum('status').notNull().default('booked'),
   returnedForRecheck: boolean('returned_for_recheck').notNull().default(false),
+  checkedInAt: timestamp('checked_in_at'),
+  startedAt: timestamp('started_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

@@ -4,9 +4,11 @@ import { labOrders, patients, users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { CreateLabOrderDto } from './dto/create-lab-order.dto';
 import { UpdateLabOrderDto } from './dto/update-lab-order.dto';
+import { AppointmentsGateway } from '../appointments/appointments.gateway';
 
 @Injectable()
 export class LabOrdersService {
+  constructor(private readonly gateway: AppointmentsGateway) {}
   async create(dto: CreateLabOrderDto) {
     const [order] = await db
       .insert(labOrders)
@@ -78,6 +80,21 @@ export class LabOrdersService {
       })
       .where(eq(labOrders.id, id))
       .returning();
+
+    if (updated?.status === 'completed') {
+      const withDetails = await this.findOne(id);
+      this.gateway.emitLabResult({
+        id: withDetails.id,
+        patientId: withDetails.patientId,
+        patientName: withDetails.patient
+          ? `${withDetails.patient.firstName} ${withDetails.patient.lastName}`.trim()
+          : 'Unknown patient',
+        testType: withDetails.testType,
+        status: withDetails.status,
+        completedAt: new Date().toISOString(),
+      });
+    }
+
     return updated;
   }
 

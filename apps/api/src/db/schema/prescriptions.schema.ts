@@ -1,7 +1,11 @@
-import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, pgEnum } from 'drizzle-orm/pg-core';
 import { visits } from './visits.schema';
 import { patients } from './patients.schema';
 import { users } from './users.schema';
+
+export const prescriptionStatusEnum = pgEnum('prescription_status', [
+  'pending', 'dispensed', 'cancelled',
+]);
 
 export const prescriptions = pgTable('prescriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -13,5 +17,8 @@ export const prescriptions = pgTable('prescriptions', {
   items: jsonb('items').notNull(),
 
   pdfUrl: text('pdf_url'),
+  status: prescriptionStatusEnum('status').notNull().default('pending'),
+  dispensedByUserId: uuid('dispensed_by_user_id').references(() => users.id),
+  dispensedAt: timestamp('dispensed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });

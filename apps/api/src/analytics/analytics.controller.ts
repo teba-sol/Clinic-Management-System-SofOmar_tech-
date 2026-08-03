@@ -173,6 +173,56 @@ export class AnalyticsController {
     return rows;
   }
 
+  @Get('wait-times')
+  @Roles('admin')
+  async waitTimes(@Query('start') startStr?: string, @Query('end') endStr?: string) {
+    const { start, end } = this.parseDateRange(startStr, endStr);
+
+    const rows = await db
+      .select({
+        scheduledAt: appointments.scheduledAt,
+        checkedInAt: appointments.checkedInAt,
+        startedAt: appointments.startedAt,
+      })
+      .from(appointments)
+      .where(
+        and(
+          gte(appointments.createdAt, start),
+          lte(appointments.createdAt, end),
+          sql`${appointments.checkedInAt} IS NOT NULL`,
+        ),
+      );
+
+    let waitSum = 0;
+    let waitCount = 0;
+    let delaySum = 0;
+    let delayCount = 0;
+
+    for (const row of rows) {
+      if (row.checkedInAt && row.startedAt) {
+        const mins = (new Date(row.startedAt).getTime() - new Date(row.checkedInAt).getTime()) / 60000;
+        if (mins >= 0) {
+          waitSum += mins;
+          waitCount += 1;
+        }
+      }
+      if (row.scheduledAt && row.checkedInAt) {
+        const mins = (new Date(row.checkedInAt).getTime() - new Date(row.scheduledAt).getTime()) / 60000;
+        delaySum += mins;
+        delayCount += 1;
+      }
+    }
+
+    const round = (n: number) => Math.round(n * 10) / 10;
+
+    return {
+      averageWaitMinutes: waitCount ? round(waitSum / waitCount) : null,
+      averageSchedulingDelayMinutes: delayCount ? round(delaySum / delayCount) : null,
+      samples: { waitTime: waitCount, schedulingDelay: delayCount },
+      period: { start, end },
+    };
+  }
+
   @Get('diagnoses')
   @Roles('admin', 'doctor')
   async diagnoses(@Query('start') startStr?: string, @Query('end') endStr?: string) {

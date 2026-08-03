@@ -33,13 +33,43 @@ export class PrescriptionsService {
 
     return generatePrescriptionPdf({
       patientName: `${patient.firstName} ${patient.lastName}`,
+      patientMrn: patient.mrn,
       doctorName: doctor.name,
       date: new Date(prescription.createdAt).toLocaleDateString(),
+      clinicName: process.env.CLINIC_NAME || 'SofOmar Clinic',
+      clinicAddress: process.env.CLINIC_ADDRESS || 'Addis Ababa, Ethiopia',
+      clinicPhone: process.env.CLINIC_PHONE || '+251 9XX XXX XXX',
       items: prescription.items as any,
     });
   }
 
   async findByPatient(patientId: string) {
     return db.select().from(prescriptions).where(eq(prescriptions.patientId, patientId));
+  }
+
+  async updateStatus(id: string, status: string, userId: string) {
+    const [existing] = await db.select().from(prescriptions).where(eq(prescriptions.id, id));
+    if (!existing) throw new NotFoundException('Prescription not found');
+
+    if (!['pending', 'dispensed', 'cancelled'].includes(status)) {
+      throw new NotFoundException('Invalid status');
+    }
+
+    const setData: Record<string, unknown> = { status: status as any };
+    if (status === 'dispensed') {
+      setData.dispensedByUserId = userId;
+      setData.dispensedAt = new Date();
+    }
+    if (status === 'cancelled') {
+      setData.dispensedByUserId = null;
+      setData.dispensedAt = null;
+    }
+
+    const [updated] = await db
+      .update(prescriptions)
+      .set(setData)
+      .where(eq(prescriptions.id, id))
+      .returning();
+    return updated;
   }
 }

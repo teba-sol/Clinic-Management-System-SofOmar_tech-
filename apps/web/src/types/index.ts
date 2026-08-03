@@ -76,6 +76,8 @@ export interface PrescriptionItem {
   duration: string;
 }
 
+export type PrescriptionStatus = 'pending' | 'dispensed' | 'cancelled';
+
 export interface Prescription {
   id: string;
   visitId: string;
@@ -83,6 +85,9 @@ export interface Prescription {
   doctorId: string;
   items: PrescriptionItem[];
   pdfUrl?: string;
+  status?: PrescriptionStatus;
+  dispensedByUserId?: string | null;
+  dispensedAt?: string | null;
   createdAt: string;
 }
 

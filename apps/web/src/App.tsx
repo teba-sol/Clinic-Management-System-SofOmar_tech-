@@ -52,7 +52,7 @@ const routeRoles: Record<string, UserRole[]> = {
   '/queue': ['admin', 'nurse', 'receptionist'],
   '/schedules': ['admin'],
   '/visits': ['admin', 'doctor', 'nurse'],
-  '/prescriptions': ['admin', 'doctor', 'nurse'],
+  '/prescriptions': ['admin', 'doctor', 'nurse', 'cashier'],
   '/lab-orders': ['admin', 'doctor', 'lab_tech'],
   '/invoices': ['admin', 'cashier'],
   '/users': ['admin'],
