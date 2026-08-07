@@ -78,3 +78,13 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+export function getApiError(error: unknown, fallback = 'Something went wrong'): string {
+  const data = (error as { response?: { data?: unknown } })?.response?.data as
+    | { message?: string | string[] }
+    | undefined;
+  if (data?.message) {
+    return Array.isArray(data.message) ? data.message.join(', ') : data.message;
+  }
+  return fallback;
+}

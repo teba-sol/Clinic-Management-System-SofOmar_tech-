@@ -4,9 +4,11 @@ import { prescriptions, patients, users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 import { generatePrescriptionPdf } from './utils/generate-prescription-pdf';
+import { ClinicSettingsService } from '../clinic-settings/clinic-settings.service';
 
 @Injectable()
 export class PrescriptionsService {
+  constructor(private clinicSettingsService: ClinicSettingsService) {}
   async findAll() {
     return db.select().from(prescriptions).orderBy(prescriptions.createdAt);
   }
@@ -31,14 +33,16 @@ export class PrescriptionsService {
     const [patient] = await db.select().from(patients).where(eq(patients.id, prescription.patientId));
     const [doctor] = await db.select().from(users).where(eq(users.id, prescription.doctorId));
 
+    const settings = await this.clinicSettingsService.get();
+
     return generatePrescriptionPdf({
       patientName: `${patient.firstName} ${patient.lastName}`,
       patientMrn: patient.mrn,
       doctorName: doctor.name,
       date: new Date(prescription.createdAt).toLocaleDateString(),
-      clinicName: process.env.CLINIC_NAME || 'SofOmar Clinic',
-      clinicAddress: process.env.CLINIC_ADDRESS || 'Addis Ababa, Ethiopia',
-      clinicPhone: process.env.CLINIC_PHONE || '+251 9XX XXX XXX',
+      clinicName: settings.clinicName || process.env.CLINIC_NAME || 'SofOmar Clinic',
+      clinicAddress: settings.address || process.env.CLINIC_ADDRESS || 'Addis Ababa, Ethiopia',
+      clinicPhone: settings.phone || process.env.CLINIC_PHONE || '+251 9XX XXX XXX',
       items: prescription.items as any,
     });
   }

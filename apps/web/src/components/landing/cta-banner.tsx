@@ -2,9 +2,11 @@ import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Reveal } from './reveal';
+import { useBookingModal } from './booking-modal';
 
 export function CtaBanner() {
   const { t } = useTranslation();
+  const { open } = useBookingModal();
 
   return (
     <section className="bg-white py-20 lg:py-24">
@@ -20,7 +22,7 @@ export function CtaBanner() {
               <p className="mx-auto mt-4 max-w-xl text-base text-white/75">{t('landing.cta.subtitle')}</p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                 <Button
-                  render={<a href="#book" />}
+                  onClick={open}
                   size="lg"
                   className="h-12 rounded-full bg-cta px-8 font-semibold text-cta-foreground hover:bg-amber-600"
                 >

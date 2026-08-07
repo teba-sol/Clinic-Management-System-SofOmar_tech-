@@ -16,7 +16,7 @@ import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { BarChart3, Activity, DollarSign, Clock } from 'lucide-react';
+import { BarChart3, Activity, DollarSign, Clock, Wallet, TrendingDown, Receipt } from 'lucide-react';
 
 type Range = '7d' | '30d';
 
@@ -33,6 +33,13 @@ interface RevenueDatum {
 interface PeakHourDatum {
   hour: string | number;
   count: string | number;
+}
+
+interface BillingSummary {
+  collected: number;
+  outstanding: number;
+  unpaidInvoices: number;
+  byMethod: { method: string; total: number; count: number }[];
 }
 
 const TEAL = '#14b8a6';
@@ -85,6 +92,13 @@ export function AdminClinicPerformance() {
     queryFn: () => api.get(`/analytics/peak-hours?range=${range}`).then((r) => r.data),
   });
 
+  const { data: billing, isPending: billingLoading } = useQuery<BillingSummary>({
+    queryKey: ['analytics-billing-summary', range],
+    queryFn: () => api.get(`/analytics/billing-summary?range=${range}`).then((r) => r.data).catch(() => ({
+      collected: 0, outstanding: 0, unpaidInvoices: 0, byMethod: [],
+    })),
+  });
+
   const volumeData = (volume || []).map((d) => ({ date: d.date, count: Number(d.count) }));
   const revenueData = (revenue || []).map((d) => ({ category: d.category, total: Number(d.total) }));
   const peakData = (peak || [])
@@ -115,6 +129,8 @@ export function AdminClinicPerformance() {
           ))}
         </div>
       </div>
+
+      <FinancialSnapshot summary={billing} loading={billingLoading} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="min-w-0">
@@ -233,5 +249,81 @@ export function AdminClinicPerformance() {
         </Card>
       </div>
     </section>
+  );
+}
+
+const PAYMENT_METHODS: { method: string; label: string; chip: string }[] = [
+  { method: 'cash', label: 'Cash', chip: 'bg-emerald-100 text-emerald-700' },
+  { method: 'telebirr', label: 'Telebirr', chip: 'bg-blue-100 text-blue-700' },
+  { method: 'cbe_birr', label: 'CBE Birr', chip: 'bg-violet-100 text-violet-700' },
+  { method: 'insurance', label: 'Insurance', chip: 'bg-amber-100 text-amber-700' },
+];
+
+function fmtMoney(n: number): string {
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function FinancialSnapshot({ summary, loading }: { summary?: BillingSummary; loading: boolean }) {
+  const s = summary || { collected: 0, outstanding: 0, unpaidInvoices: 0, byMethod: [] };
+  const collected = s.collected || 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Wallet className="size-4 text-teal-500" /> Financial Snapshot
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <DollarSign className="size-3.5 text-emerald-600" /> Collected
+                </p>
+                <p className="text-2xl font-bold text-emerald-700 mt-1">{fmtMoney(collected)}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <TrendingDown className="size-3.5 text-amber-600" /> Outstanding
+                </p>
+                <p className="text-2xl font-bold text-amber-700 mt-1">{fmtMoney(s.outstanding || 0)}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Receipt className="size-3.5 text-rose-600" /> Unpaid invoices
+                </p>
+                <p className="text-2xl font-bold text-rose-700 mt-1">{s.unpaidInvoices || 0}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(s.byMethod || []).length === 0 && (
+                <span className="text-xs text-muted-foreground">No payments recorded in this period.</span>
+              )}
+              {(s.byMethod || []).map((b) => {
+                const meta = PAYMENT_METHODS.find((m) => m.method === b.method);
+                const pct = collected > 0 ? Math.round((b.total / collected) * 100) : 0;
+                return (
+                  <div key={b.method} className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm">
+                    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', meta?.chip || 'bg-muted text-muted-foreground')}>
+                      {meta?.label || b.method}
+                    </span>
+                    <span className="font-semibold">{fmtMoney(b.total)}</span>
+                    <span className="text-xs text-muted-foreground">{pct}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

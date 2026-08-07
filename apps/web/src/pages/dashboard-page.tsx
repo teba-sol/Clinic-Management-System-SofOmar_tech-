@@ -6,16 +6,20 @@ import { useOffline } from '@/context/offline-context';
 import { enqueue } from '@/lib/offline-queue';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import api from '@/lib/api';
+import api, { getApiError } from '@/lib/api';
+import { toLocalDateInput, cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchSelect } from '@/components/shared/search-select';
+import { SlotPicker } from '@/components/appointments/slot-picker';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { PriorityBadge } from '@/components/shared/priority-badge';
+import { PriorityDialog } from '@/components/appointments/priority-dialog';
 import { LabOrderPatientInfo } from '@/components/shared/lab-order-patient-info';
 import { AdminClinicPerformance } from '@/components/dashboard/admin-clinic-performance';
-import { getGreeting } from '@/lib/utils';
+import { getGreeting, getClinicToday } from '@/lib/utils';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -33,30 +37,11 @@ import {
   Users, FlaskConical, Receipt, Stethoscope,
   ClipboardList, TrendingUp, Activity, CalendarPlus, Clock,
   ArrowRight, Play, UserPlus, Inbox, HeartPulse, Thermometer,
-  Weight, Ruler, Phone, Mail, MapPin, AlertTriangle, Syringe,
+  Weight, Ruler, Phone, Mail, MapPin, AlertTriangle, Syringe, Flag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import type { Patient, Appointment, LabOrder, LabOrderStatus, Invoice, User, Visit, Vital, CreateVitalDto, UpdateVitalDto, BookingRequest } from '@/types';
-
-const TIME_OF_DAY_START: Record<string, string> = {
-  morning: '09:00',
-  afternoon: '14:00',
-  evening: '17:00',
-};
-
-const TIME_OF_DAY_LABEL: Record<string, string> = {
-  morning: 'Morning (9:00)',
-  afternoon: 'Afternoon (14:00)',
-  evening: 'Evening (17:00)',
-};
-
-function toLocalDateInput(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import type { Patient, Appointment, AppointmentPriority, LabOrder, LabOrderStatus, Invoice, User, Visit, Vital, CreateVitalDto, UpdateVitalDto, BookingRequest } from '@/types';
 
 function departmentLabel(department: string): string {
   return department.startsWith('landing.') ? department.replace('landing.', '') : department;
@@ -105,9 +90,7 @@ export default function DashboardPage() {
 
   const greeting = getGreeting;
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-  });
+  const today = getClinicToday();
 
   const userRole = user.role;
 
@@ -377,8 +360,12 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
   const [bookPatientId, setBookPatientId] = useState('');
   const [bookDoctorId, setBookDoctorId] = useState('');
   const [bookDate, setBookDate] = useState(() => toLocalDateInput(new Date()));
-  const [bookTimeOfDay, setBookTimeOfDay] = useState('morning');
+  const [bookSlot, setBookSlot] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<Appointment | null>(null);
+
+  useEffect(() => {
+    setBookSlot('');
+  }, [bookDoctorId, bookDate]);
 
   const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
 
@@ -418,19 +405,33 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
   }, [appointments, liveQueues]);
 
   const bookMutation = useMutation({
-    mutationFn: () => api.post('/appointments', {
+    mutationFn: (scheduledAt: string) => api.post('/appointments', {
       patientId: bookPatientId,
       doctorId: bookDoctorId,
-      scheduledAt: `${bookDate}T${TIME_OF_DAY_START[bookTimeOfDay]}`,
+      scheduledAt,
     }),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['appointments-queue'] });
       const qn = res.data?.queueNumber;
-      setBookPatientId(''); setBookDoctorId('');
+      setBookPatientId(''); setBookDoctorId(''); setBookSlot('');
       toast.success(qn ? `Appointment booked — Queue #${qn}` : 'Appointment booked');
     },
-    onError: () => toast.error('Failed to book appointment'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to book appointment')),
   });
+
+  const handleQuickBook = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookSlot) {
+      toast.error('Please select a time slot');
+      return;
+    }
+    const scheduledAt = `${bookDate}T${bookSlot}`;
+    if (new Date(scheduledAt).getTime() <= Date.now()) {
+      toast.error('Please choose a future date or time');
+      return;
+    }
+    bookMutation.mutate(scheduledAt);
+  };
 
   const checkInMutation = useMutation({
     mutationFn: (id: string) => api.patch(`/appointments/${id}/status`, { status: 'checked_in' }),
@@ -438,7 +439,7 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
       queryClient.invalidateQueries({ queryKey: ['appointments-queue'] });
       toast.success('Patient checked in');
     },
-    onError: () => toast.error('Failed to check in patient'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to check in patient')),
   });
 
   const { data: bookingRequests } = useQuery<BookingRequest[]>({
@@ -532,40 +533,36 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
             </div>
             <h3 className="font-semibold text-sm">Quick Book Appointment</h3>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); bookMutation.mutate(); }} className="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <div className="flex-1 min-w-[170px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Patient</Label>
-              <SearchSelect
-                items={patients.map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName}`, subtitle: p.mrn }))}
-                value={bookPatientId} onValueChange={setBookPatientId} placeholder="Select patient"
-              />
+          <form onSubmit={handleQuickBook} className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+              <div className="flex-1 min-w-[170px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Patient</Label>
+                <SearchSelect
+                  items={patients.map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName}`, subtitle: p.mrn }))}
+                  value={bookPatientId} onValueChange={setBookPatientId} placeholder="Select patient"
+                />
+              </div>
+              <div className="flex-1 min-w-[170px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Doctor</Label>
+                <SearchSelect
+                  items={doctors.map((d) => ({ value: d.id, label: `Dr. ${d.name}`, subtitle: (d as any).specialty || 'General Practitioner' }))}
+                  value={bookDoctorId} onValueChange={setBookDoctorId} placeholder="Select doctor"
+                />
+              </div>
+              <div className="flex-1 min-w-[150px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Date</Label>
+                <Input type="date" min={toLocalDateInput(new Date())} value={bookDate} onChange={(e) => setBookDate(e.target.value)} className="h-9" />
+              </div>
             </div>
-            <div className="flex-1 min-w-[170px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Doctor</Label>
-              <SearchSelect
-                items={doctors.map((d) => ({ value: d.id, label: `Dr. ${d.name}`, subtitle: (d as any).specialty || 'General Practitioner' }))}
-                value={bookDoctorId} onValueChange={setBookDoctorId} placeholder="Select doctor"
-              />
-            </div>
-            <div className="flex-1 min-w-[150px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Date</Label>
-              <Input type="date" min={toLocalDateInput(new Date())} value={bookDate} onChange={(e) => setBookDate(e.target.value)} className="h-9" />
-            </div>
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Time of day</Label>
-              <Select value={bookTimeOfDay} onValueChange={(v) => v && setBookTimeOfDay(v)}>
-                <SelectTrigger className="h-9 w-full" aria-label="Time of day">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(['morning', 'afternoon', 'evening'] as const).map((t) => (
-                    <SelectItem key={t} value={t}>{TIME_OF_DAY_LABEL[t]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button type="submit" disabled={bookMutation.isPending || !bookPatientId || !bookDoctorId || !bookDate}
+            {bookDoctorId && bookDate ? (
+              <SlotPicker doctorId={bookDoctorId} date={bookDate} value={bookSlot} onChange={setBookSlot} />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Select a doctor and date to see available time slots.
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={bookMutation.isPending || !bookPatientId || !bookDoctorId || !bookDate || !bookSlot}
                 className="w-full sm:w-auto h-9 rounded-xl px-6">
                 {bookMutation.isPending ? 'Booking...' : 'Book Now'}
               </Button>
@@ -745,18 +742,33 @@ function ReceptionistDashboard({ appointments, patients, doctors }: {
 /* ─── NURSE DASHBOARD ─── */
 function NurseDashboard({ appointments, patients }: { appointments: Appointment[]; patients: Patient[] }) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { setPatient } = usePatientContext();
   const { isOnline, lastSyncAt, refreshPendingCount } = useOffline();
   const [triagePatient, setTriagePatient] = useState<Appointment | null>(null);
   const [vitalsForm, setVitalsForm] = useState({ bp: '', temp: '', pulse: '', weight: '', height: '', complaint: '' });
   const [existingVitalsRecord, setExistingVitalsRecord] = useState<Vital | null>(null);
+  const [triagePriority, setTriagePriority] = useState<AppointmentPriority>('routine');
+  const [triagePriorityReason, setTriagePriorityReason] = useState('');
+  const [priorityTarget, setPriorityTarget] = useState<Appointment | null>(null);
 
   const patientMap = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
 
   const checkedIn = appointments.filter((a) => a.status === 'checked_in');
   const triaged = appointments.filter((a) => a.status === 'triaged');
   const inProgress = appointments.filter((a) => a.status === 'in_progress');
+
+  const priorityMutation = useMutation({
+    mutationFn: ({ id, priority, reason }: { id: string; priority: AppointmentPriority; reason?: string }) =>
+      api.patch(`/appointments/${id}/priority`, { priority, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments-queue'] });
+      setPriorityTarget(null);
+      toast.success('Priority updated');
+    },
+    onError: (err) => toast.error(getApiError(err, 'Failed to update priority')),
+  });
 
   const { data: fetchedVitals, refetch: refetchVitals } = useQuery<Vital[]>({
     queryKey: ['vitals', 'appointment', triagePatient?.id],
@@ -804,6 +816,8 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
 
   const openTriage = (appt: Appointment) => {
     setTriagePatient(appt);
+    setTriagePriority(appt.priority === 'routine' || !appt.priority ? 'routine' : appt.priority);
+    setTriagePriorityReason(appt.priorityReason ?? '');
     const p = patientMap.get(appt.patientId);
     if (p) setPatient(p);
   };
@@ -811,6 +825,8 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
   const closeTriage = () => {
     setTriagePatient(null);
     setExistingVitalsRecord(null);
+    setTriagePriority('routine');
+    setTriagePriorityReason('');
     setVitalsForm({ bp: '', temp: '', pulse: '', weight: '', height: '', complaint: '' });
   };
 
@@ -876,6 +892,14 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
         ...payload,
       });
     }
+
+    if (triagePriority !== (triagePatient.priority || 'routine')) {
+      priorityMutation.mutate({
+        id: triagePatient.id,
+        priority: triagePriority,
+        reason: triagePriorityReason || vitalsForm.complaint || undefined,
+      });
+    }
   };
 
   const patientName = triagePatient ? patientMap.get(triagePatient.patientId) : null;
@@ -910,6 +934,7 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                   <div key={appt.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span className="text-sm font-bold text-muted-foreground shrink-0">#{appt.queueNumber}</span>
+                      <PriorityBadge priority={appt.priority} />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{p ? `${p.firstName} ${p.lastName}` : 'Unknown'}</p>
                         <p className="text-xs text-muted-foreground truncate">
@@ -917,9 +942,20 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                         </p>
                       </div>
                     </div>
-                    <Button size="sm" variant="secondary" onClick={() => openTriage(appt)} className="shrink-0">
-                      Record Vitals
-                    </Button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Set priority"
+                        className="size-8 text-muted-foreground hover:text-amber-600"
+                        onClick={() => setPriorityTarget(appt)}
+                      >
+                        <Flag className="size-4" />
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => openTriage(appt)} className="shrink-0">
+                        Record Vitals
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
@@ -945,6 +981,7 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                   <div key={appt.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <span className="text-sm font-bold text-muted-foreground shrink-0">#{appt.queueNumber}</span>
+                      <PriorityBadge priority={appt.priority} />
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{p ? `${p.firstName} ${p.lastName}` : 'Unknown'}</p>
                         <p className="text-xs text-muted-foreground truncate">
@@ -987,6 +1024,7 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                 return (
                   <div key={appt.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                     <span className="w-8 shrink-0 font-bold text-muted-foreground">#{appt.queueNumber}</span>
+                    <PriorityBadge priority={appt.priority} className="shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{p ? `${p.firstName} ${p.lastName}` : 'Unknown'}</p>
                       <p className="text-xs text-muted-foreground truncate">{p?.mrn}</p>
@@ -994,6 +1032,15 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                     <span className="text-xs text-muted-foreground shrink-0">
                       {new Date(appt.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Set priority"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-amber-600"
+                      onClick={() => setPriorityTarget(appt)}
+                    >
+                      <Flag className="size-3.5" />
+                    </Button>
                     <StatusBadge status={appt.status} />
                   </div>
                 );
@@ -1048,6 +1095,39 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
                 </Card>
               )}
 
+              {/* Priority Control */}
+              <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+                <Label className="flex items-center gap-1"><Flag className="size-3" /> Queue Priority</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['routine', 'urgent', 'emergency'] as AppointmentPriority[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setTriagePriority(p)}
+                      className={cn(
+                        'rounded-lg border px-2 py-2 text-xs font-semibold transition-colors',
+                        triagePriority === p
+                          ? p === 'emergency'
+                            ? 'border-red-500 bg-red-50 text-red-700'
+                            : p === 'urgent'
+                            ? 'border-amber-500 bg-amber-50 text-amber-700'
+                            : 'border-gray-400 bg-white text-gray-700'
+                          : 'border-gray-200 bg-white text-muted-foreground hover:border-gray-300',
+                      )}
+                    >
+                      {t(`priority.${p}`)}
+                    </button>
+                  ))}
+                </div>
+                {triagePriority !== 'routine' && (
+                  <Input
+                    placeholder={t('priority.reasonPlaceholder')}
+                    value={triagePriorityReason}
+                    onChange={(e) => setTriagePriorityReason(e.target.value)}
+                  />
+                )}
+              </div>
+
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1"><Activity className="size-3" /> Chief Complaint</Label>
                 <Input placeholder="Reason for visit" value={vitalsForm.complaint}
@@ -1095,6 +1175,19 @@ function NurseDashboard({ appointments, patients }: { appointments: Appointment[
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Priority Flag Dialog */}
+      <PriorityDialog
+        open={!!priorityTarget}
+        onOpenChange={(o) => { if (!o) setPriorityTarget(null); }}
+        appointment={priorityTarget}
+        patientName={priorityTarget ? patientMap.get(priorityTarget.patientId)?.firstName : undefined}
+        isSaving={priorityMutation.isPending}
+        onSave={(priority, reason) => {
+          if (!priorityTarget) return;
+          priorityMutation.mutate({ id: priorityTarget.id, priority, reason });
+        }}
+      />
     </>
   );
 }
@@ -1323,7 +1416,6 @@ function CashierDashboard({ invoices }: { invoices: Invoice[] }) {
 function AdminDashboard({ appointments, patients, pendingLabOrders, doctors }: {
   appointments: Appointment[]; patients: Patient[]; pendingLabOrders: LabOrder[]; doctors: User[];
 }) {
-  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const { data: bookingRequests } = useQuery<BookingRequest[]>({
@@ -1331,8 +1423,62 @@ function AdminDashboard({ appointments, patients, pendingLabOrders, doctors }: {
     queryFn: () => api.get('/booking/requests').then((r) => r.data).catch(() => []),
   });
 
+  const { data: billing } = useQuery<{ collected: number; outstanding: number; unpaidInvoices: number }>({
+    queryKey: ['analytics-billing-summary', '30d'],
+    queryFn: () => api.get('/analytics/billing-summary?range=30d').then((r) => r.data).catch(() => ({ collected: 0, outstanding: 0, unpaidInvoices: 0 })),
+  });
+
+  const { data: diagnosesData } = useQuery<{ diagnoses: { code: string; description: string; count: number }[] }>({
+    queryKey: ['analytics-diagnoses'],
+    queryFn: () => api.get('/analytics/diagnoses').then((r) => r.data).catch(() => ({ diagnoses: [] })),
+  });
+
   const pendingRequests = (bookingRequests || []).filter((r) => r.status === 'pending');
   const pendingLabCount = pendingLabOrders.filter((o) => o.status === 'ordered' || o.status === 'sample_collected').length;
+  const highPriorityCount = appointments.filter((a) => a.priority === 'urgent' || a.priority === 'emergency').length;
+  const unpaidInvoices = billing?.unpaidInvoices ?? 0;
+  const outstanding = billing?.outstanding ?? 0;
+
+  const attentionItems = [
+    highPriorityCount > 0 && {
+      key: 'priority',
+      label: `${highPriorityCount} urgent/emergency in queue`,
+      subtitle: 'Patients flagged as urgent or emergency',
+      href: '/queue',
+      icon: Flag,
+      color: 'text-red-700',
+      bgColor: 'bg-red-100',
+    },
+    pendingLabCount > 0 && {
+      key: 'labs',
+      label: `${pendingLabCount} pending lab orders`,
+      subtitle: 'Ordered / awaiting sample collection',
+      href: '/lab-orders?filter=pending',
+      icon: FlaskConical,
+      color: 'text-amber-700',
+      bgColor: 'bg-amber-100',
+    },
+    pendingRequests.length > 0 && {
+      key: 'requests',
+      label: `${pendingRequests.length} pending booking requests`,
+      subtitle: 'Online booking requests to review',
+      href: '/booking-requests',
+      icon: Inbox,
+      color: 'text-violet-700',
+      bgColor: 'bg-violet-100',
+    },
+    unpaidInvoices > 0 && {
+      key: 'invoices',
+      label: `${unpaidInvoices} unpaid invoice${unpaidInvoices === 1 ? '' : 's'}`,
+      subtitle: `$${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} outstanding`,
+      href: '/invoices',
+      icon: Receipt,
+      color: 'text-rose-700',
+      bgColor: 'bg-rose-100',
+    },
+  ].filter(Boolean) as { key: string; label: string; subtitle: string; href: string; icon: React.ElementType; color: string; bgColor: string }[];
+
+  const topDiagnoses = (diagnosesData?.diagnoses || []).slice(0, 5);
 
   return (
     <>
@@ -1351,31 +1497,32 @@ function AdminDashboard({ appointments, patients, pendingLabOrders, doctors }: {
           onClick={() => navigate('/users?role=doctor')} />
       </div>
 
-      {pendingRequests.length > 0 && (
-        <Card>
-          <CardContent className="pt-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <CalendarPlus className="size-4 text-primary" />
-                <h3 className="font-semibold">Pending Booking Requests</h3>
+      {attentionItems.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center justify-center size-8 rounded-lg bg-amber-100 text-amber-700">
+                <AlertTriangle className="size-4" />
               </div>
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
-                {pendingRequests.length}
-              </span>
+              <h3 className="font-semibold text-sm">Needs Attention ({attentionItems.length})</h3>
             </div>
-            <div className="space-y-2">
-              {pendingRequests.slice(0, 5).map((req) => (
-                <div key={req.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
-                  <div>
-                    <p className="text-sm font-medium">{req.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t(req.department)} · {new Date(req.preferredDate).toLocaleDateString()}
-                    </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+              {attentionItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => navigate(item.href)}
+                  className="group flex items-center gap-3 rounded-xl border border-amber-200 bg-background p-3 text-left transition-colors hover:bg-amber-50"
+                >
+                  <div className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${item.bgColor}`}>
+                    <item.icon className={`size-4 ${item.color}`} />
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => navigate('/booking-requests')} className="gap-1.5">
-                    Review <ArrowRight className="size-3.5" />
-                  </Button>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{item.label}</p>
+                    <p className="text-xs text-muted-foreground truncate">{item.subtitle}</p>
+                  </div>
+                  <ArrowRight className="size-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </button>
               ))}
             </div>
           </CardContent>
@@ -1383,6 +1530,36 @@ function AdminDashboard({ appointments, patients, pendingLabOrders, doctors }: {
       )}
 
       <AdminClinicPerformance />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Stethoscope className="size-4 text-teal-500" /> Top Diagnoses
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {topDiagnoses.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No diagnoses recorded in the last 90 days.</p>
+          ) : (
+            <div className="space-y-2">
+              {topDiagnoses.map((d, i) => (
+                <div key={d.code || i} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2">
+                  <span className="text-sm font-bold text-muted-foreground w-5 shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{d.description || d.code}</p>
+                    {d.description && d.code && (
+                      <p className="text-xs text-muted-foreground font-mono truncate">{d.code}</p>
+                    )}
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground shrink-0">
+                    {d.count}×
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </>
   );
 }

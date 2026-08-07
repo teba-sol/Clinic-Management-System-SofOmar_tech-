@@ -5,6 +5,11 @@ import { eq, and, sql, inArray } from 'drizzle-orm';
 
 const DISPLAY_STATUSES = ['checked_in', 'triaged', 'in_progress'];
 
+const PRIORITY_RANK = sql`CASE ${appointments.priority}
+  WHEN 'emergency' THEN 0
+  WHEN 'urgent' THEN 1
+  ELSE 2 END`;
+
 @Controller('queue-display')
 export class QueueDisplayController {
   @Get()
@@ -14,6 +19,7 @@ export class QueueDisplayController {
         id: appointments.id,
         queueNumber: appointments.queueNumber,
         status: appointments.status,
+        priority: appointments.priority,
         scheduledAt: appointments.scheduledAt,
         patientFirstName: patients.firstName,
         doctorName: users.name,
@@ -28,7 +34,7 @@ export class QueueDisplayController {
           inArray(appointments.status, DISPLAY_STATUSES as any),
         ),
       )
-      .orderBy(appointments.doctorId, appointments.queueNumber);
+      .orderBy(appointments.doctorId, PRIORITY_RANK, appointments.queueNumber);
 
     const grouped: Record<string, { doctorName: string; entries: any[] }> = {};
     for (const row of rows) {
@@ -40,6 +46,7 @@ export class QueueDisplayController {
         id: row.id,
         queueNumber: row.queueNumber,
         status: row.status,
+        priority: row.priority,
         patientName: row.patientFirstName || 'Patient',
         scheduledAt: row.scheduledAt,
       });
@@ -54,6 +61,7 @@ export class QueueDisplayController {
         id: appointments.id,
         queueNumber: appointments.queueNumber,
         status: appointments.status,
+        priority: appointments.priority,
         scheduledAt: appointments.scheduledAt,
         patientFirstName: patients.firstName,
         doctorName: users.name,
@@ -68,12 +76,13 @@ export class QueueDisplayController {
           inArray(appointments.status, DISPLAY_STATUSES as any),
         ),
       )
-      .orderBy(appointments.queueNumber);
+      .orderBy(PRIORITY_RANK, appointments.queueNumber);
 
     return rows.map((r) => ({
       id: r.id,
       queueNumber: r.queueNumber,
       status: r.status,
+      priority: r.priority,
       patientName: r.patientFirstName || 'Patient',
       doctorName: r.doctorName || 'Unknown',
       scheduledAt: r.scheduledAt,

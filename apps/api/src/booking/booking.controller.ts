@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { db } from '../db';
-import { users, doctorSchedules, appointments, patients } from '../db/schema';
+import { users, doctorSchedules, appointments, patients, services } from '../db/schema';
 import { eq, and, gte, lte, sql } from 'drizzle-orm';
 import { BookingService } from './booking.service';
 import { CreateBookingRequestDto } from './dto/create-booking-request.dto';
@@ -8,6 +8,7 @@ import { UpdateBookingRequestStatusDto } from './dto/update-booking-request-stat
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { validateBooking } from '../appointments/booking-validation';
 
 @Controller('booking')
 export class BookingController {
@@ -45,6 +46,44 @@ export class BookingController {
       .from(users)
       .where(and(eq(users.role, 'doctor'), eq(users.isActive, true)));
     return doctors;
+  }
+
+  @Get('stats')
+  async getStats() {
+    const [doctorCount, patientCount, departmentCount] = await Promise.all([
+      db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(users)
+        .where(and(eq(users.role, 'doctor'), eq(users.isActive, true))),
+      db.select({ count: sql<number>`COUNT(*)` }).from(patients),
+      db.select({ count: sql<number>`COUNT(*)` }).from(services).where(eq(services.active, true)),
+    ]);
+
+    return {
+      doctors: Number(doctorCount[0]?.count ?? 0),
+      patients: Number(patientCount[0]?.count ?? 0),
+      departments: Number(departmentCount[0]?.count ?? 0),
+    };
+  }
+
+  @Get('staff')
+  async getStaff() {
+    const staff = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+      })
+      .from(users)
+      .where(
+        and(
+          eq(users.isActive, true),
+          sql`${users.role} IN ('doctor', 'nurse', 'lab_tech')`,
+        ),
+      )
+      .orderBy(users.name);
+
+    return staff;
   }
 
   @Get('doctors/:doctorId/slots')
@@ -111,13 +150,17 @@ export class BookingController {
         const min = m % 60;
         const timeStr = `${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
 
-        if (!bookedTimes.has(timeStr)) {
-          const label = new Date(0, 0, 0, h, min).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-          slots.push({ time: timeStr, label });
-        }
+        if (bookedTimes.has(timeStr)) continue;
+
+        const slotDate = new Date(date);
+        slotDate.setHours(h, min, 0, 0);
+        if (slotDate.getTime() <= Date.now()) continue;
+
+        const label = new Date(0, 0, 0, h, min).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+        slots.push({ time: timeStr, label });
       }
     }
 
@@ -175,6 +218,12 @@ export class BookingController {
         .returning();
     }
 
+    await validateBooking({
+      doctorId,
+      patientId: patient.id,
+      scheduledAt: date,
+    });
+
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
@@ -188,6 +237,7 @@ export class BookingController {
           eq(appointments.doctorId, doctorId),
           gte(appointments.scheduledAt, startOfDay),
           lte(appointments.scheduledAt, endOfDay),
+          sql`${appointments.status} NOT IN ('cancelled', 'no_show')`,
         ),
       );
 

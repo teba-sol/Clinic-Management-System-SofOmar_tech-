@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from '@/context/auth-context';
+import { ThemeProvider } from '@/context/theme-context';
 import { PatientProvider } from '@/context/patient-context';
 import { OfflineProvider } from '@/context/offline-context';
 import type { UserRole } from '@/types';
@@ -25,6 +26,7 @@ import PatientWorkspacePage from '@/pages/doctor/patient-workspace-page';
 import QueueDisplayPage from '@/pages/queue-display/queue-display-page';
 import BookingRequestsPage from '@/pages/booking-requests/booking-requests-page';
 import AnalyticsPage from '@/pages/analytics/analytics-page';
+import SettingsPage from '@/pages/settings/settings-page';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +60,7 @@ const routeRoles: Record<string, UserRole[]> = {
   '/users': ['admin'],
   '/services': ['admin'],
   '/analytics': ['admin', 'cashier'],
+  '/settings': ALL_ROLES,
   '/doctor': ['doctor'],
 };
 
@@ -95,6 +98,7 @@ function AppRoutes() {
         <Route path="/users" element={<RoleRoute roles={routeRoles['/users']}><UsersPage /></RoleRoute>} />
         <Route path="/services" element={<RoleRoute roles={routeRoles['/services']}><ServicesPage /></RoleRoute>} />
         <Route path="/analytics" element={<RoleRoute roles={routeRoles['/analytics']}><AnalyticsPage /></RoleRoute>} />
+        <Route path="/settings" element={<RoleRoute roles={routeRoles['/settings']}><SettingsPage /></RoleRoute>} />
         <Route path="/doctor" element={<RoleRoute roles={routeRoles['/doctor']}><DoctorDashboardPage /></RoleRoute>} />
         <Route path="/doctor/workspace/:patientId" element={<RoleRoute roles={routeRoles['/doctor']}><PatientWorkspacePage /></RoleRoute>} />
         <Route path="/doctor/workspace/:patientId/:appointmentId" element={<RoleRoute roles={routeRoles['/doctor']}><PatientWorkspacePage /></RoleRoute>} />
@@ -106,18 +110,20 @@ function AppRoutes() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <OfflineProvider>
-          <AuthProvider>
-            <PatientProvider>
-              <AppRoutes />
-            </PatientProvider>
-            <Toaster position="top-right" richColors closeButton />
-          </AuthProvider>
-        </OfflineProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <OfflineProvider>
+            <AuthProvider>
+              <PatientProvider>
+                <AppRoutes />
+              </PatientProvider>
+              <Toaster position="top-right" richColors closeButton />
+            </AuthProvider>
+          </OfflineProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 

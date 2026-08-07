@@ -25,4 +25,6 @@ export const invoiceItems = pgTable('invoice_items', {
   description: text('description').notNull(),
   quantity: integer('quantity').notNull().default(1),
   unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull(),
+  sourceType: text('source_type'),
+  sourceId: text('source_id'),
 });

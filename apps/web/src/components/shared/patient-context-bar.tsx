@@ -20,7 +20,7 @@ export function PatientContextBar() {
   const age = patient.dateOfBirth ? getAge(patient.dateOfBirth) : null;
 
   return (
-    <div className="sticky top-16 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-2 bg-background border-b border-primary/10 shadow-sm">
+    <div className="sticky top-16 z-20 px-4 lg:px-8 py-2 bg-background border-b border-primary/10 shadow-sm">
       <div className="flex items-center gap-3">
         <Avatar className="size-9 border-2 border-primary/20">
           <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">

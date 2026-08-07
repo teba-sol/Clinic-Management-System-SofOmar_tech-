@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -19,9 +19,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Receipt, Plus, Trash2, CreditCard, Printer, Eye, Sparkles, FileText } from 'lucide-react';
+import { Receipt, Plus, Trash2, CreditCard, Printer, Eye, Sparkles, FileText, Pill, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Invoice, Patient, Service } from '@/types';
+import type { Invoice, Patient, Service, InvoiceAutoFill } from '@/types';
 
 export default function InvoicesPage() {
   const [searchParams] = useSearchParams();
@@ -198,6 +198,19 @@ function InvoiceCard({ invoice, onPay, onView }: { invoice: Invoice; onPay: (inv
   );
 }
 
+interface SuggestLine {
+  key: string;
+  description: string;
+  status?: string;
+  serviceId: string | null;
+  suggestedPrice: number | null;
+  quantity: number;
+  unitPrice: number;
+  include: boolean;
+  sourceType: string;
+  sourceId: string;
+}
+
 function CreateInvoiceForm({
   patients,
   preselectedPatientId,
@@ -216,10 +229,13 @@ function CreateInvoiceForm({
 
   const [patientId, setPatientId] = useState(preselectedPatientId || '');
   const [visitId, setVisitId] = useState<string | undefined>(undefined);
+  const [medLines, setMedLines] = useState<SuggestLine[]>([]);
+  const [labLines, setLabLines] = useState<SuggestLine[]>([]);
   const [items, setItems] = useState<{ serviceId: string | null; description: string; quantity: number; unitPrice: number }[]>([
     { serviceId: null, description: '', quantity: 1, unitPrice: 0 },
   ]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const loadedForPatient = useRef<string>('');
 
   useEffect(() => {
     if (preselectedPatientId && preselectedPatientId !== patientId) {
@@ -228,28 +244,70 @@ function CreateInvoiceForm({
   }, [preselectedPatientId]);
 
   useEffect(() => {
-    if (patientId && items.length === 1 && !items[0].description) {
-      loadSuggestions();
-    }
+    if (!patientId || loadedForPatient.current === patientId) return;
+    loadedForPatient.current = patientId;
+    loadSuggestions();
   }, [patientId]);
 
   const loadSuggestions = async () => {
     if (!patientId) return;
     setLoadingSuggestions(true);
     try {
-      const data = await api.get(`/invoices/auto-fill/${patientId}`).then((r) => r.data);
-      if (data.items && data.items.length > 0) {
-        setItems(data.items.map((i: any) => ({ serviceId: i.serviceId ?? null, description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })));
-        setVisitId(data.visitId ?? undefined);
-        toast.success(`Loaded ${data.items.length} item(s) from visit${data.hasVisit ? '' : ' (no recent visit)'}`);
+      const data = await api.get(`/invoices/auto-fill/${patientId}`).then((r) => r.data as InvoiceAutoFill);
+      setVisitId(data.visitId ?? undefined);
+      setMedLines(
+        (data.medications || []).map((m) => ({
+          key: m.key,
+          description: m.dosage ? `${m.drugName} (${m.dosage})` : m.drugName,
+          serviceId: m.serviceId,
+          suggestedPrice: m.suggestedPrice,
+          quantity: 1,
+          unitPrice: m.unitPrice,
+          include: true,
+          sourceType: 'prescription',
+          sourceId: m.key,
+        })),
+      );
+      setLabLines(
+        (data.labs || []).map((l) => ({
+          key: l.key,
+          description: l.testType,
+          status: l.status,
+          serviceId: l.serviceId,
+          suggestedPrice: l.suggestedPrice,
+          quantity: 1,
+          unitPrice: l.unitPrice,
+          include: true,
+          sourceType: 'lab_order',
+          sourceId: l.key,
+        })),
+      );
+      const count = (data.medications || []).length + (data.labs || []).length;
+      if (count > 0) {
+        toast.success(`Loaded ${count} item(s) from the latest visit`);
       } else {
-        toast('No suggestions found for this patient');
+        toast('No prescribed medications or lab tests found for this patient');
       }
     } catch {
       toast.error('Failed to load suggestions');
     } finally {
       setLoadingSuggestions(false);
     }
+  };
+
+  const updateLine = (
+    setter: React.Dispatch<React.SetStateAction<SuggestLine[]>>,
+    key: string,
+    field: keyof SuggestLine,
+    value: any,
+  ) => {
+    setter((prev) =>
+      prev.map((l) =>
+        l.key === key
+          ? { ...l, [field]: field === 'quantity' || field === 'unitPrice' ? Number(value) : value }
+          : l,
+      ),
+    );
   };
 
   const addItem = () => setItems([...items, { serviceId: null, description: '', quantity: 1, unitPrice: 0 }]);
@@ -274,10 +332,113 @@ function CreateInvoiceForm({
     setItems(updated);
   };
 
-  const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const includedMeds = medLines.filter((l) => l.include);
+  const includedLabs = labLines.filter((l) => l.include);
+  const suggestionTotal =
+    includedMeds.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0) +
+    includedLabs.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+  const manualTotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const total = suggestionTotal + manualTotal;
+
+  const noBillableItems =
+    !!patientId &&
+    !loadingSuggestions &&
+    medLines.length === 0 &&
+    labLines.length === 0;
+
+  const handleSubmit = () => {
+    const suggestionItems = [...includedMeds, ...includedLabs].map((l) => ({
+      serviceId:
+        l.serviceId && l.quantity === 1 && (l.suggestedPrice === null || l.unitPrice === l.suggestedPrice)
+          ? l.serviceId
+          : null,
+      description: l.description,
+      quantity: l.quantity,
+      unitPrice: l.unitPrice,
+      sourceType: l.sourceType,
+      sourceId: l.sourceId,
+    }));
+    onSubmit({ patientId, visitId, items: [...suggestionItems, ...items] });
+  };
+
+  const renderSuggestRow = (
+    line: SuggestLine,
+    setter: React.Dispatch<React.SetStateAction<SuggestLine[]>>,
+    showStatus?: boolean,
+  ) => (
+    <div key={line.key} className="p-3 rounded-xl border bg-muted/20">
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={line.include}
+          onChange={(e) => updateLine(setter, line.key, 'include', e.target.checked)}
+          className="mt-1 size-4 accent-primary"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium truncate">{line.description}</p>
+            {showStatus && line.status && (
+              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                {line.status}
+              </span>
+            )}
+            {!line.serviceId && (
+              <span className="text-[10px] text-amber-600 font-medium">manual price</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mt-2 pl-7">
+        <div className="space-y-1">
+          <Label className="text-xs">Qty</Label>
+          <Input
+            type="number"
+            min={1}
+            value={line.quantity}
+            disabled={!line.include}
+            onChange={(e) => updateLine(setter, line.key, 'quantity', e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Unit Price ($)</Label>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            value={line.unitPrice}
+            disabled={!line.include}
+            onChange={(e) => updateLine(setter, line.key, 'unitPrice', e.target.value)}
+            required
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSuggestGroup = (title: string, icon: any, lines: SuggestLine[], setter: React.Dispatch<React.SetStateAction<SuggestLine[]>>, showStatus?: boolean) =>
+    lines.length > 0 && (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            {title} ({lines.length})
+          </span>
+        </div>
+        {lines.map((l) => renderSuggestRow(l, setter, showStatus))}
+      </div>
+    );
+
+  const selectedPatient = patients.find((p) => p.id === patientId);
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ patientId, visitId, items }); }} className="space-y-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
+      className="space-y-4"
+    >
       <div className="space-y-1.5">
         <Label>Patient *</Label>
         <SearchSelect
@@ -287,88 +448,121 @@ function CreateInvoiceForm({
             subtitle: p.mrn,
           }))}
           value={patientId}
-          onValueChange={setPatientId}
+          onValueChange={(v) => {
+            setPatientId(v || '');
+            setMedLines([]);
+            setLabLines([]);
+          }}
           placeholder="Select patient"
         />
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>Line Items</Label>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={loadSuggestions} disabled={!patientId || loadingSuggestions} className="gap-1">
-              <Sparkles className={loadingSuggestions ? 'size-3 animate-spin' : 'size-3'} />
-              {loadingSuggestions ? 'Loading...' : 'Auto-Fill'}
-            </Button>
+      <div className="flex items-center justify-between">
+        <Label>Suggestions from latest visit</Label>
+        <Button type="button" variant="outline" size="sm" onClick={loadSuggestions} disabled={!patientId || loadingSuggestions} className="gap-1">
+          <Sparkles className={loadingSuggestions ? 'size-3 animate-spin' : 'size-3'} />
+          {loadingSuggestions ? 'Loading...' : 'Refresh'}
+        </Button>
+      </div>
+
+      {!patientId && (
+        <p className="text-xs text-muted-foreground">Select a patient to load their prescribed medications and lab tests.</p>
+      )}
+      {patientId && medLines.length === 0 && labLines.length === 0 && !loadingSuggestions && (
+        <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+          No unbilled fee for this patient.
+        </p>
+      )}
+      {loadingSuggestions && <p className="text-xs text-muted-foreground">Loading suggestions...</p>}
+
+      {renderSuggestGroup('Prescribed Medications', <Pill className="size-3.5 text-primary" />, medLines, setMedLines)}
+      {renderSuggestGroup('Lab Tests', <FlaskConical className="size-3.5 text-primary" />, labLines, setLabLines, true)}
+
+      {!noBillableItems && (
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <Label>Additional Line Items</Label>
             <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1">
               <Plus className="size-3" /> Add Item
             </Button>
           </div>
+          {items.map((item, i) => (
+            <div key={i} className="p-3 rounded-xl border space-y-2 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-primary">Item {i + 1}</span>
+                <div className="flex items-center gap-1">
+                  {item.serviceId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => selectService(i, null)}
+                      className="h-6 px-2 text-xs text-muted-foreground"
+                    >
+                      Custom item
+                    </Button>
+                  )}
+                  {items.length > 1 && (
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(i)} className="size-6 text-destructive">
+                      <Trash2 className="size-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Service</Label>
+                <SearchSelect
+                  items={[
+                    { value: 'custom', label: 'Custom item (free text)', subtitle: 'Set your own description and price' },
+                    ...(services || []).map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                      subtitle: `$${s.defaultPrice} — ${s.category}`,
+                    })),
+                  ]}
+                  value={item.serviceId ?? ''}
+                  onValueChange={(v: string | null) => selectService(i, v === 'custom' ? null : (v ?? null))}
+                  placeholder="Select a service"
+                />
+              </div>
+              <Input placeholder="Description" value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} required disabled={!!item.serviceId} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Qty</Label>
+                  <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Unit Price ($)</Label>
+                  <Input type="number" min={0} step={0.01} value={item.unitPrice} onChange={(e) => updateItem(i, 'unitPrice', e.target.value)} required disabled={!!item.serviceId} />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-        {items.map((item, i) => (
-          <div key={i} className="p-3 rounded-xl border space-y-2 bg-muted/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-primary">Item {i + 1}</span>
-              <div className="flex items-center gap-1">
-                {item.serviceId && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => selectService(i, null)}
-                    className="h-6 px-2 text-xs text-muted-foreground"
-                  >
-                    Custom item
-                  </Button>
-                )}
-                {items.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(i)} className="size-6 text-destructive">
-                    <Trash2 className="size-3" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Service</Label>
-              <SearchSelect
-                items={[
-                  { value: 'custom', label: 'Custom item (free text)', subtitle: 'Set your own description and price' },
-                  ...(services || []).map((s) => ({
-                    value: s.id,
-                    label: s.name,
-                    subtitle: `$${s.defaultPrice} — ${s.category}`,
-                  })),
-                ]}
-                value={item.serviceId ?? ''}
-                onValueChange={(v: string | null) => selectService(i, v === 'custom' ? null : (v ?? null))}
-                placeholder="Select a service"
-              />
-            </div>
-            <Input placeholder="Description" value={item.description} onChange={(e) => updateItem(i, 'description', e.target.value)} required disabled={!!item.serviceId} />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Qty</Label>
-                <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(i, 'quantity', e.target.value)} required />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Unit Price ($)</Label>
-                <Input type="number" min={0} step={0.01} value={item.unitPrice} onChange={(e) => updateItem(i, 'unitPrice', e.target.value)} required disabled={!!item.serviceId} />
-              </div>
-            </div>
-          </div>
-        ))}
+      )}
+
+      {!noBillableItems && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5">
+          <span className="font-semibold">Total</span>
+          <span className="text-xl font-bold text-primary">${total.toFixed(2)}</span>
+        </div>
+      )}
+
+      <div className="text-xs text-muted-foreground">
+        {selectedPatient ? `Billing ${selectedPatient.firstName} ${selectedPatient.lastName}` : ''}
+        {visitId ? ' — auto-linked to latest unbilled visit' : ''}
       </div>
 
-      <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5">
-        <span className="font-semibold">Total</span>
-        <span className="text-xl font-bold text-primary">${total.toFixed(2)}</span>
-      </div>
-
-      <DialogFooter>
-        <Button type="submit" disabled={loading || !patientId || items.some((i) => !i.description)}>
-          {loading ? 'Creating...' : 'Create Invoice'}
-        </Button>
-      </DialogFooter>
+      {!noBillableItems && (
+        <DialogFooter>
+          <Button
+            type="submit"
+            disabled={loading || !patientId || items.some((i) => !i.description)}
+          >
+            {loading ? 'Creating...' : 'Create Invoice'}
+          </Button>
+        </DialogFooter>
+      )}
     </form>
   );
 }

@@ -1,20 +1,22 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { getApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { usePatientContext } from '@/context/patient-context';
 import { useSocket } from '@/hooks/use-socket';
 import { PageHeader } from '@/components/shared/page-header';
 import { EmptyState } from '@/components/shared/empty-state';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { PriorityBadge } from '@/components/shared/priority-badge';
+import { PriorityDialog } from '@/components/appointments/priority-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ClipboardList, Wifi, WifiOff, Users, Stethoscope, ArrowRight, Play, UserCheck, XCircle, Filter, Monitor } from 'lucide-react';
-import type { User, Appointment, Patient } from '@/types';
+import { ClipboardList, Wifi, WifiOff, Users, Stethoscope, ArrowRight, Play, UserCheck, XCircle, Filter, Monitor, Flag } from 'lucide-react';
+import type { User, Appointment, Patient, AppointmentPriority } from '@/types';
 
 export default function QueuePage() {
   const { user } = useAuth();
@@ -26,6 +28,20 @@ export default function QueuePage() {
 
   const [selectedDoctor, setSelectedDoctor] = useState<string>(isDoctor ? (user?.id ?? '') : 'all');
   const filterParam = searchParams.get('filter') || 'all';
+  const [priorityTarget, setPriorityTarget] = useState<Appointment | null>(null);
+
+  const canFlagPriority = user?.role === 'doctor' || user?.role === 'nurse' || user?.role === 'admin';
+
+  const priorityMutation = useMutation({
+    mutationFn: ({ id, priority, reason }: { id: string; priority: AppointmentPriority; reason?: string }) =>
+      api.patch(`/appointments/${id}/priority`, { priority, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['queue'] });
+      setPriorityTarget(null);
+      toast.success('Priority updated');
+    },
+    onError: (err) => toast.error(getApiError(err, 'Failed to update priority')),
+  });
 
   const { data: doctors } = useQuery<User[]>({
     queryKey: ['users'],
@@ -71,7 +87,7 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ['queue'] });
       toast.success('Patient checked in');
     },
-    onError: () => toast.error('Failed to check in patient'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to check in patient')),
   });
 
   const noShowMutation = useMutation({
@@ -80,7 +96,7 @@ export default function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ['queue'] });
       toast.success('Marked as no-show');
     },
-    onError: () => toast.error('Failed to mark as no-show'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to mark as no-show')),
   });
 
   const startVisitMutation = useMutation({
@@ -203,16 +219,32 @@ export default function QueuePage() {
               >
                 <CardContent className="pt-5">
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`flex items-center justify-center size-16 rounded-2xl text-2xl font-bold ${
-                      appt.status === 'in_progress'
-                        ? 'bg-amber-500 text-white animate-pulse'
-                        : appt.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-primary text-primary-foreground'
-                    }`}>
-                      #{appt.queueNumber}
+                    <div className="flex items-center gap-2">
+                      <div className={`flex items-center justify-center size-16 rounded-2xl text-2xl font-bold ${
+                        appt.status === 'in_progress'
+                          ? 'bg-amber-500 text-white animate-pulse'
+                          : appt.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-primary text-primary-foreground'
+                      }`}>
+                        #{appt.queueNumber}
+                      </div>
+                      <PriorityBadge priority={appt.priority} />
                     </div>
-                    <StatusBadge status={appt.status} />
+                    <div className="flex flex-col items-end gap-1.5">
+                      {canFlagPriority && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Set priority"
+                          className="size-7 text-muted-foreground hover:text-amber-600"
+                          onClick={() => setPriorityTarget(appt)}
+                        >
+                          <Flag className="size-3.5" />
+                        </Button>
+                      )}
+                      <StatusBadge status={appt.status} />
+                    </div>
                   </div>
 
                   {patient && (
@@ -313,6 +345,18 @@ export default function QueuePage() {
           })}
         </div>
       )}
+
+      <PriorityDialog
+        open={!!priorityTarget}
+        onOpenChange={(o) => { if (!o) setPriorityTarget(null); }}
+        appointment={priorityTarget}
+        patientName={priorityTarget ? patientMap.get(priorityTarget.patientId)?.firstName : undefined}
+        isSaving={priorityMutation.isPending}
+        onSave={(priority, reason) => {
+          if (!priorityTarget) return;
+          priorityMutation.mutate({ id: priorityTarget.id, priority, reason });
+        }}
+      />
     </div>
   );
 }

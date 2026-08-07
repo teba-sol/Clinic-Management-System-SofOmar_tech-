@@ -14,6 +14,17 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 @Injectable()
 export class BookingService {
   async create(dto: CreateBookingRequestDto) {
+    const preferred = new Date(dto.preferredDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (isNaN(preferred.getTime())) {
+      throw new BadRequestException('Invalid preferred date');
+    }
+    if (preferred.getTime() < today.getTime()) {
+      throw new BadRequestException('Preferred date cannot be in the past');
+    }
+
     const [request] = await db
       .insert(bookingRequests)
       .values({

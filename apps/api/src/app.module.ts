@@ -15,13 +15,14 @@ import { DiagnosisCodesModule } from './diagnosis-codes/diagnosis-codes.module';
 import { QueueDisplayModule } from './queue-display/queue-display.module';
 import { BookingModule } from './booking/booking.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ClinicSettingsModule } from './clinic-settings/clinic-settings.module';
 
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
     }),
     UsersModule,
-    AuthModule, PatientsModule, SchedulesModule, AppointmentsModule, VisitsModule, PrescriptionsModule, LabOrdersModule, InvoicesModule, VitalsModule, ServicesModule, DiagnosisCodesModule, QueueDisplayModule, BookingModule, AnalyticsModule],
+    AuthModule, PatientsModule, SchedulesModule, AppointmentsModule, VisitsModule, PrescriptionsModule, LabOrdersModule, InvoicesModule, VitalsModule, ServicesModule, DiagnosisCodesModule, QueueDisplayModule, BookingModule, AnalyticsModule, ClinicSettingsModule],
   
 })
 export class AppModule {}

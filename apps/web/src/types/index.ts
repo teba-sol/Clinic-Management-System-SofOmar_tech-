@@ -4,6 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  phone?: string | null;
   role: UserRole;
   isActive: boolean;
   createdAt: string;
@@ -41,6 +42,8 @@ export interface DoctorSchedule {
 
 export type AppointmentStatus = 'booked' | 'checked_in' | 'in_progress' | 'completed' | 'cancelled' | 'no_show' | 'triaged';
 
+export type AppointmentPriority = 'routine' | 'urgent' | 'emergency';
+
 export interface Appointment {
   id: string;
   patientId: string;
@@ -48,6 +51,10 @@ export interface Appointment {
   scheduledAt: string;
   queueNumber: number;
   status: AppointmentStatus;
+  priority?: AppointmentPriority;
+  priorityReason?: string | null;
+  priorityChangedBy?: string | null;
+  priorityChangedAt?: string | null;
   returnedForRecheck?: boolean;
   createdAt: string;
 }
@@ -214,7 +221,32 @@ export interface UpdateLabOrderDto {
 export interface CreateInvoiceDto {
   patientId: string;
   visitId?: string;
-  items: { serviceId?: string | null; description: string; quantity: number; unitPrice: number }[];
+  items: { serviceId?: string | null; description: string; quantity: number; unitPrice: number; sourceType?: string; sourceId?: string }[];
+}
+
+export interface InvoiceAutoFillMedication {
+  key: string;
+  drugName: string;
+  dosage: string | null;
+  serviceId: string | null;
+  suggestedPrice: number | null;
+  unitPrice: number;
+}
+
+export interface InvoiceAutoFillLab {
+  key: string;
+  testType: string;
+  status: string;
+  serviceId: string | null;
+  suggestedPrice: number | null;
+  unitPrice: number;
+}
+
+export interface InvoiceAutoFill {
+  visitId: string | null;
+  hasVisit: boolean;
+  medications: InvoiceAutoFillMedication[];
+  labs: InvoiceAutoFillLab[];
 }
 
 export interface PayInvoiceDto {
@@ -306,4 +338,33 @@ export interface CreateBookingRequestDto {
   preferredTime: PreferredTime;
   doctorId?: string;
   reason?: string;
+}
+
+export type WorkingDay = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface ClinicHoliday {
+  date: string;
+  label: string;
+}
+
+export interface ClinicSettings {
+  id: number;
+  clinicName: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  email: string;
+  workingDays: WorkingDay[];
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  holidays: ClinicHoliday[];
+  logoData?: string | null;
+  logoMimeType?: string | null;
+  updatedAt: string;
+}
+
+export interface AuthSession {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
 }

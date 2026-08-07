@@ -12,8 +12,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription,
-} from '@/components/ui/sheet';
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -217,7 +217,7 @@ export default function PatientsListPage() {
         </Card>
       )}
 
-      <CreatePatientSheet
+      <CreatePatientDialog
         open={showCreate}
         onOpenChange={setShowCreate}
         onSubmit={(data) => createMutation.mutate(data)}
@@ -227,7 +227,7 @@ export default function PatientsListPage() {
   );
 }
 
-function CreatePatientSheet({
+function CreatePatientDialog({
   open,
   onOpenChange,
   onSubmit,
@@ -271,12 +271,12 @@ function CreatePatientSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="mb-6">
-          <SheetTitle className="text-xl">Register New Patient</SheetTitle>
-          <SheetDescription>Fill in the patient's information to create a new record.</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-4">
+          <DialogTitle className="text-xl">Register New Patient</DialogTitle>
+          <DialogDescription>Fill in the patient's information to create a new record.</DialogDescription>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -348,14 +348,14 @@ function CreatePatientSheet({
             <Label>Chronic Conditions</Label>
             <Textarea value={form.chronicConditions} onChange={(e) => update('chronicConditions', e.target.value)} rows={2} />
           </div>
-          <SheetFooter className="pt-2">
+          <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={loading}>
               {loading ? 'Registering...' : 'Register Patient'}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { getApiError } from '@/lib/api';
+import { toLocalDateInput } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { EmptyState } from '@/components/shared/empty-state';
 import { StatusBadge } from '@/components/shared/status-badge';
@@ -14,6 +15,7 @@ import {
 
 import { Input } from '@/components/ui/input';
 import { SearchSelect } from '@/components/shared/search-select';
+import { SlotPicker } from '@/components/appointments/slot-picker';
 import {
   CalendarCheck, Plus, Clock, X, Calendar, CalendarDays, ChevronLeft, ChevronRight,
 } from 'lucide-react';
@@ -57,7 +59,8 @@ export default function AppointmentsPage() {
   const [bookDoctorPreFill, setBookDoctorPreFill] = useState('');
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleBookDate, setRescheduleBookDate] = useState('');
+  const [rescheduleSlot, setRescheduleSlot] = useState('');
 
   const { data: allAppointments, isLoading } = useQuery<Appointment[]>({
     queryKey: ['appointments-all'],
@@ -89,7 +92,7 @@ export default function AppointmentsPage() {
       const qn = res.data?.queueNumber;
       toast.success(qn ? `Appointment booked — Queue #${qn}` : 'Appointment booked successfully');
     },
-    onError: () => toast.error('Failed to book appointment'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to book appointment')),
   });
 
   const cancelMutation = useMutation({
@@ -100,7 +103,7 @@ export default function AppointmentsPage() {
       setCancelTarget(null);
       toast.success('Appointment cancelled');
     },
-    onError: () => toast.error('Failed to cancel appointment'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to cancel appointment')),
   });
 
   const rescheduleMutation = useMutation({
@@ -117,11 +120,12 @@ export default function AppointmentsPage() {
       queryClient.invalidateQueries({ queryKey: ['appointments-all'] });
       queryClient.invalidateQueries({ queryKey: ['appointments-queue'] });
       setRescheduleTarget(null);
-      setRescheduleDate('');
+      setRescheduleBookDate('');
+      setRescheduleSlot('');
       const qn = data?.queueNumber;
       toast.success(qn ? `Appointment rescheduled — New queue #${qn}` : 'Appointment rescheduled');
     },
-    onError: () => toast.error('Failed to reschedule appointment'),
+    onError: (err) => toast.error(getApiError(err, 'Failed to reschedule appointment')),
   });
 
   const canCancel = (appt: Appointment) =>
@@ -374,7 +378,8 @@ export default function AppointmentsPage() {
                                     setRescheduleTarget(appt);
                                     const dt = new Date(appt.scheduledAt);
                                     dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
-                                    setRescheduleDate(dt.toISOString().slice(0, 16));
+                                    setRescheduleBookDate(dt.toISOString().slice(0, 10));
+                                    setRescheduleSlot('');
                                   }}
                                 >
                                   <Calendar className="size-3" />
@@ -446,7 +451,7 @@ export default function AppointmentsPage() {
       </Dialog>
 
       {/* Reschedule Dialog */}
-      <Dialog open={!!rescheduleTarget} onOpenChange={(o) => { if (!o) { setRescheduleTarget(null); setRescheduleDate(''); } }}>
+      <Dialog open={!!rescheduleTarget} onOpenChange={(o) => { if (!o) { setRescheduleTarget(null); setRescheduleBookDate(''); setRescheduleSlot(''); } }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Reschedule Appointment</DialogTitle>
@@ -457,22 +462,31 @@ export default function AppointmentsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label>New Date & Time</Label>
+              <Label>New Date</Label>
               <Input
-                type="datetime-local"
-                value={rescheduleDate}
-                onChange={(e) => setRescheduleDate(e.target.value)}
+                type="date"
+                min={toLocalDateInput(new Date())}
+                value={rescheduleBookDate}
+                onChange={(e) => setRescheduleBookDate(e.target.value)}
               />
             </div>
+            {rescheduleTarget && rescheduleBookDate ? (
+              <SlotPicker
+                doctorId={rescheduleTarget.doctorId}
+                date={rescheduleBookDate}
+                value={rescheduleSlot}
+                onChange={setRescheduleSlot}
+              />
+            ) : null}
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setRescheduleTarget(null); setRescheduleDate(''); }}>
+              <Button variant="outline" onClick={() => { setRescheduleTarget(null); setRescheduleBookDate(''); setRescheduleSlot(''); }}>
                 Cancel
               </Button>
               <Button
-                disabled={!rescheduleDate || rescheduleMutation.isPending}
+                disabled={!rescheduleSlot || rescheduleMutation.isPending}
                 onClick={() => {
-                  if (rescheduleTarget && rescheduleDate) {
-                    rescheduleMutation.mutate({ appt: rescheduleTarget, newDate: rescheduleDate });
+                  if (rescheduleTarget && rescheduleBookDate && rescheduleSlot) {
+                    rescheduleMutation.mutate({ appt: rescheduleTarget, newDate: `${rescheduleBookDate}T${rescheduleSlot}` });
                   }
                 }}
               >
@@ -495,15 +509,16 @@ function BookAppointmentForm({
 }) {
   const [patientId, setPatientId] = useState('');
   const [doctorId, setDoctorId] = useState(prefillDoctorId || '');
-  const [scheduledAt, setScheduledAt] = useState(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  });
+  const [bookDate, setBookDate] = useState(() => toLocalDateInput(new Date()));
+  const [bookSlot, setBookSlot] = useState('');
+
+  useEffect(() => {
+    setBookSlot('');
+  }, [doctorId, bookDate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({ patientId, doctorId, scheduledAt });
+    onSubmit({ patientId, doctorId, scheduledAt: `${bookDate}T${bookSlot}` });
   };
 
   return (
@@ -523,12 +538,19 @@ function BookAppointmentForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label>Date & Time *</Label>
-        <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} required />
+        <Label>Date *</Label>
+        <Input type="date" min={toLocalDateInput(new Date())} value={bookDate} onChange={(e) => setBookDate(e.target.value)} required />
       </div>
+      {doctorId && bookDate ? (
+        <SlotPicker doctorId={doctorId} date={bookDate} value={bookSlot} onChange={setBookSlot} />
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Select a doctor and date to see available time slots.
+        </p>
+      )}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" disabled={loading || !patientId || !doctorId || !scheduledAt}>
+        <Button type="submit" disabled={loading || !patientId || !doctorId || !bookDate || !bookSlot}>
           {loading ? 'Booking...' : 'Book Appointment'}
         </Button>
       </DialogFooter>

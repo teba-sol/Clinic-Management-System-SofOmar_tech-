@@ -10,3 +10,4 @@ export * from './vitals.schema';
 export * from './services.schema';
 export * from './diagnosis-codes.schema';
 export * from './booking-requests.schema';
+export * from './clinic-settings.schema';

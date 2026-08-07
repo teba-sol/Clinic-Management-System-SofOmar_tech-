@@ -9,6 +9,9 @@ interface LabReportPdfData {
   status: string;
   resultText: string;
   date: string;
+  clinicName: string;
+  clinicAddress: string;
+  clinicPhone: string;
 }
 
 export function generateLabReportPdf(data: LabReportPdfData): Promise<Buffer> {
@@ -25,8 +28,11 @@ export function generateLabReportPdf(data: LabReportPdfData): Promise<Buffer> {
 
     doc.pipe(stream);
 
-    doc.fontSize(20).text('Clinic Management System', { align: 'center' });
-    doc.fontSize(12).text('Laboratory Test Report', { align: 'center' });
+    doc.fontSize(20).fillColor('#0f766e').text(data.clinicName, { align: 'center' });
+    doc.fontSize(10).fillColor('#475569').text(data.clinicAddress, { align: 'center' });
+    doc.fontSize(10).fillColor('#475569').text(`Tel: ${data.clinicPhone}`, { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(12).fillColor('#111827').text('Laboratory Test Report', { align: 'center' });
     doc.moveDown(2);
 
     doc.fontSize(11).text(`Patient: ${data.patientName}`);

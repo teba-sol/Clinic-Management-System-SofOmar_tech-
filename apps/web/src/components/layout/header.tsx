@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { LogOut, Menu } from 'lucide-react';
+import { LogOut, Menu, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/context/theme-context';
 import { LanguageSwitcher } from '@/components/shared/language-switcher';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,15 +20,6 @@ import {
 } from '@/components/ui/sheet';
 import { Sidebar } from './sidebar';
 
-const roleColors: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700 border-purple-200',
-  doctor: 'bg-blue-100 text-blue-700 border-blue-200',
-  nurse: 'bg-pink-100 text-pink-700 border-pink-200',
-  receptionist: 'bg-teal-100 text-teal-700 border-teal-200',
-  lab_tech: 'bg-amber-100 text-amber-700 border-amber-200',
-  cashier: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-};
-
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -41,9 +32,10 @@ function getInitials(name: string): string {
 export function Header() {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white/80 backdrop-blur-md px-4 lg:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 lg:px-8">
       <Sheet>
         <SheetTrigger
           render={
@@ -58,42 +50,56 @@ export function Header() {
       </Sheet>
 
       <div className="flex-1" />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
+      </Button>
       <LanguageSwitcher />
 
       {user && (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" className="flex items-center gap-2.5 px-2 py-1.5 h-auto rounded-xl">
-                <Avatar className="size-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                    {getInitials(user.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden sm:block text-left">
-                  <p className="text-sm font-semibold leading-tight">{user.name}</p>
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] font-bold uppercase tracking-wider mt-0.5 ${roleColors[user.role] || ''}`}
-                  >
-                    {user.role.replace('_', ' ')}
-                  </Badge>
-                </div>
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>
-              <p className="font-semibold">{user.name}</p>
-              <p className="text-xs text-muted-foreground font-normal">{user.email}</p>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
-              <LogOut className="size-4 mr-2" />
-              {t('auth.logout')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={logout}
+            aria-label={t('auth.logout')}
+            title={t('auth.logout')}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <LogOut className="size-5" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" className="flex items-center gap-2.5 px-2 py-1.5 h-auto rounded-xl">
+                  <Avatar className="size-8">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-semibold leading-tight">{user.name}</p>
+                  </div>
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>
+                <p className="font-semibold">{user.name}</p>
+                <p className="text-xs text-muted-foreground font-normal">{user.email}</p>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout} className="text-destructive cursor-pointer">
+                <LogOut className="size-4 mr-2" />
+                {t('auth.logout')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
       )}
     </header>
   );

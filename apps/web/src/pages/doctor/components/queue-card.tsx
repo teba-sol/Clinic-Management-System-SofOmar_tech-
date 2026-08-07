@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { PriorityBadge } from '@/components/shared/priority-badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Play, Stethoscope, ArrowRight, Check, X } from 'lucide-react';
+import { Play, Stethoscope, ArrowRight, Check, X, Flag } from 'lucide-react';
 import type { Appointment, Patient } from '@/types';
 
 interface QueueCardProps {
@@ -14,6 +15,7 @@ interface QueueCardProps {
   onStartVisit?: (appt: Appointment) => void;
   onContinue?: (appt: Appointment) => void;
   onView?: (appt: Appointment) => void;
+  onSetPriority?: (appt: Appointment) => void;
   isPending?: boolean;
 }
 
@@ -27,6 +29,7 @@ export function QueueCard({
   onStartVisit,
   onContinue,
   onView,
+  onSetPriority,
   isPending,
 }: QueueCardProps) {
   const age = patient
@@ -107,7 +110,23 @@ export function QueueCard({
                   })}
                 </p>
               </div>
-              <StatusBadge status={appointment.status} />
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <PriorityBadge priority={appointment.priority} />
+                <div className="flex items-center gap-1">
+                  {onSetPriority && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Set priority"
+                      className="size-6 text-muted-foreground hover:text-amber-600"
+                      onClick={() => onSetPriority(appointment)}
+                    >
+                      <Flag className="size-3.5" />
+                    </Button>
+                  )}
+                  <StatusBadge status={appointment.status} />
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-2 mt-3">

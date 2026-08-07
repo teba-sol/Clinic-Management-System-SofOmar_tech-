@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import api from '@/lib/api';
+import api, { getApiError } from '@/lib/api';
+import { toLocalDateInput } from '@/lib/utils';
 import { PageHeader } from '@/components/shared/page-header';
 import { EmptyState } from '@/components/shared/empty-state';
 import { StatusBadge } from '@/components/shared/status-badge';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SlotPicker } from '@/components/appointments/slot-picker';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
@@ -28,12 +30,6 @@ import type {
 type Filter = 'all' | BookingRequestStatus;
 
 const FILTERS: Filter[] = ['all', 'pending', 'contacted', 'converted', 'declined'];
-
-const TIME_OF_DAY_START: Record<string, string> = {
-  morning: '09:00',
-  afternoon: '14:00',
-  evening: '17:00',
-};
 
 function formatDate(dateStr: string): string {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
@@ -76,7 +72,7 @@ export default function BookingRequestsPage() {
       queryClient.invalidateQueries({ queryKey: ['booking-requests'] });
       toast.success(t('bookingRequests.updated'));
     },
-    onError: () => toast.error(t('bookingRequests.updateError')),
+    onError: (err) => toast.error(getApiError(err, t('bookingRequests.updateError'))),
   });
 
   const convertMutation = useMutation({
@@ -113,7 +109,7 @@ export default function BookingRequestsPage() {
           : t('bookingRequests.convertedSuccessNoQueue'),
       );
     },
-    onError: () => toast.error(t('bookingRequests.convertError')),
+    onError: (err) => toast.error(getApiError(err, t('bookingRequests.convertError'))),
   });
 
   const counts = useMemo(() => {
@@ -331,9 +327,12 @@ function ConvertDialogContent({
   const [phone, setPhone] = useState(request.phone);
   const [email, setEmail] = useState(request.email || '');
   const [doctorId, setDoctorId] = useState(request.doctorId || '');
-  const [scheduledAt, setScheduledAt] = useState(
-    `${request.preferredDate}T${TIME_OF_DAY_START[request.preferredTime] || '09:00'}`,
-  );
+  const [bookDate, setBookDate] = useState(request.preferredDate);
+  const [bookSlot, setBookSlot] = useState('');
+
+  useEffect(() => {
+    setBookSlot('');
+  }, [doctorId, bookDate]);
 
   const departmentLabel = request.department.startsWith('landing.')
     ? t(request.department)
@@ -362,11 +361,16 @@ function ConvertDialogContent({
   const newPatientValid =
     firstName.trim() && lastName.trim() && gender && dateOfBirth && phone.trim();
   const canSubmit =
-    (patientMode === 'existing' ? !!patientId : !!newPatientValid) && !!doctorId && !!scheduledAt;
+    (patientMode === 'existing' ? !!patientId : !!newPatientValid) && !!doctorId && !!bookDate && !!bookSlot;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
+    const scheduledAt = `${bookDate}T${bookSlot}`;
+    if (new Date(scheduledAt).getTime() <= Date.now()) {
+      toast.error('Please choose a future date and time');
+      return;
+    }
     onSubmit({
       patientId: patientMode === 'existing' ? patientId : undefined,
       newPatient:
@@ -479,29 +483,37 @@ function ConvertDialogContent({
           )}
         </div>
 
-        <div className="space-y-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('bookingRequests.doctorSection')}
-          </span>
-          <div className="space-y-1.5">
-            <Label>{t('bookingRequests.selectDoctor')} *</Label>
-            <SearchSelect
-              items={doctorItems}
-              value={doctorId}
-              onValueChange={setDoctorId}
-              placeholder={t('bookingRequests.selectDoctor')}
-            />
+          <div className="space-y-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('bookingRequests.doctorSection')}
+            </span>
+            <div className="space-y-1.5">
+              <Label>{t('bookingRequests.selectDoctor')} *</Label>
+              <SearchSelect
+                items={doctorItems}
+                value={doctorId}
+                onValueChange={setDoctorId}
+                placeholder={t('bookingRequests.selectDoctor')}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t('common.date')} *</Label>
+              <Input
+                type="date"
+                min={toLocalDateInput(new Date())}
+                value={bookDate}
+                onChange={(e) => setBookDate(e.target.value)}
+                required
+              />
+            </div>
+            {doctorId && bookDate ? (
+              <SlotPicker doctorId={doctorId} date={bookDate} value={bookSlot} onChange={setBookSlot} />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Select a doctor and date to see available time slots.
+              </p>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label>{t('bookingRequests.dateTime')} *</Label>
-            <Input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              required
-            />
-          </div>
-        </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>

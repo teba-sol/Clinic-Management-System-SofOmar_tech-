@@ -14,6 +14,7 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
   role: roleEnum('role').notNull(),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),

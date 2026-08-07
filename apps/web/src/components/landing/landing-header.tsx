@@ -6,18 +6,25 @@ import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/shared/language-switcher';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useBookingModal } from './booking-modal';
+import { useClinicSettings } from '@/hooks/use-clinic-settings';
 
 const navLinks = [
   { href: '#home', key: 'landing.nav.home' },
-  { href: '#about', key: 'landing.nav.about' },
+  { href: '#why-us', key: 'landing.nav.about' },
   { href: '#services', key: 'landing.nav.services' },
   { href: '#contact', key: 'landing.nav.contact' },
 ];
 
 export function LandingHeader() {
   const { t } = useTranslation();
+  const { open: openBookingModal } = useBookingModal();
+  const { data: settings } = useClinicSettings();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const clinicName = settings?.clinicName || t('app.name');
+  const tagline = settings?.tagline || t('app.tagline');
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -36,7 +43,7 @@ export function LandingHeader() {
       )}
     >
       <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-5 lg:h-20 lg:px-8">
-        <a href="#home" className="flex items-center gap-2.5 justify-self-start" aria-label={t('app.name')}>
+        <a href="#home" className="flex items-center gap-2.5 justify-self-start" aria-label={clinicName}>
           <span
             className={cn(
               'flex size-10 items-center justify-center rounded-xl',
@@ -47,10 +54,10 @@ export function LandingHeader() {
           </span>
           <span className="leading-tight">
             <span className={cn('block text-sm font-bold tracking-tight lg:text-base', scrolled ? 'text-brand-900' : 'text-white')}>
-              {t('app.name')}
+              {clinicName}
             </span>
             <span className={cn('block text-[10px] font-medium uppercase tracking-[0.2em]', scrolled ? 'text-muted-foreground' : 'text-white/70')}>
-              {t('app.tagline')}
+              {tagline}
             </span>
           </span>
         </a>
@@ -84,7 +91,7 @@ export function LandingHeader() {
             {t('landing.nav.staffLogin')}
           </Link>
           <Button
-            render={<a href="#book" />}
+            onClick={openBookingModal}
             className="hidden h-10 rounded-full bg-cta px-6 font-semibold text-cta-foreground hover:bg-amber-600 lg:inline-flex"
           >
             {t('landing.nav.book')}
@@ -133,9 +140,11 @@ export function LandingHeader() {
               {t('landing.nav.staffLogin')}
             </Button>
             <Button
-              render={<a href="#book" />}
+              onClick={() => {
+                setOpen(false);
+                openBookingModal();
+              }}
               className="w-full rounded-full bg-cta font-semibold text-cta-foreground hover:bg-amber-600"
-              onClick={() => setOpen(false)}
             >
               {t('landing.nav.book')}
             </Button>

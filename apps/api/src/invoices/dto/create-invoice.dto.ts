@@ -16,6 +16,14 @@ class InvoiceItemDto {
   @IsNumber()
   @Min(0)
   unitPrice: number;
+
+  @IsOptional()
+  @IsString()
+  sourceType?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceId?: string;
 }
 
 export class CreateInvoiceDto {

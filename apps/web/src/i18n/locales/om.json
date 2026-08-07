@@ -348,7 +348,7 @@
   "landing": {
     "nav": {
       "home": "Mana",
-      "about": "Waa'ee Keenya",
+      "about": "Maaliif Nuyi",
       "services": "Tajaajiloota",
       "contact": "Qunnamii",
       "book": "Beellama Godhachuu",
@@ -357,15 +357,19 @@
     },
     "hero": {
       "badge": "Hanyaadhaa ummata keenyaaf",
-      "title": "Ummata keenyaa yaaluu,",
-      "titleHighlight": "dhukkubsataa tokko tokkoon.",
+      "title": "Fayyaa keessan dursaa. Yaala dijitaalaa fi saffisaa,",
+      "titleHighlight": "isin naannootti ijaarame.",
       "subtitle": "Galchaa ykn toora interneetii beellama godhachaa — ogeeyyiin, laaboratorii fi firaarmaasii keenyi akka daftee fayyaduu fi jiruu keessanitti deebitan walitti hojjetu.",
       "primaryCta": "Beellama Godhachuu",
       "secondaryCta": "Dubbisi"
     },
     "quickBook": {
+      "badge": "Beellama Sagantaa internetii",
       "heading": "Beellama Gaafadhu",
       "subheading": "Daawwannaa gaafadhu — gareen simattuu keenya beellama mirkaneessuuf siif bilbila.",
+      "imageAlt": "Dhukkubsataan SoofOmar Kiliinikii keessatti simatamaa",
+      "imageBadgeTitle": "Beellama guyyaa ofii",
+      "imageBadgeText": "Gareen keenya daawwannaa keessan bilbilaadhaan mirkaneessa",
       "name": "Maqaa guutuu",
       "namePlaceholder": "Maqaa keessan guutuu",
       "phone": "Lakkoofsa bilbilaa",
@@ -393,79 +397,159 @@
       "submitAnother": "Gaaffii biraa ergi"
     },
     "stats": {
-      "doctors": "20+",
-      "patients": "10,000+",
-      "satisfaction": "97%",
+      "title": "Haga namootaaf kan kennu",
+      "subtitle": "Lakkoofsi dhugaa mana yaalaa keenyaa — har'aa, waadaa osoo hin taane.",
       "doctorsLabel": "Hakiimota haga-qabaa",
-      "patientsLabel": "Dhukkubsattoota Dhabarruu",
-      "satisfactionLabel": "Sadarkaa Quaqadummaa"
+      "patientsLabel": "Dhukkubsattoota Galmaa'an",
+      "departmentsLabel": "Kutaa"
     },
     "services": {
+      "badge": "Waan kenninu",
       "title": "Kutaa Keenya",
       "subtitle": "Kunuunsa guutuu qabdaa tokko jala — qorannoo guyyaa guyyaa irraa jalqabee yaala addaa irratti.",
-      "general": { "name": "Yaala Waliigalaa", "desc": "Gorsa guyyaa guyyaa fi kunuunsa dhowwii maatii guutuuf." },
-      "pediatrics": { "name": "Yaala Ijoollee", "desc": "Kunuunsa qajeelaa fi adda baafame daa'imaa, ijoollee fi dargaggootaaf." },
-      "maternal": { "name": "Fayyaa Haadhaa fi Daa'imaa", "desc": "Kunuunsa ulfa, dhaloota fi kunuunsa daa'imaa bakka nageenya qabu keessatti." },
-      "lab": { "name": "Laaboratorii fi Qorannoo", "desc": "Qorannoo laaboratorii saffisaa fi sirrii murteessii addaan baafachuuf." },
-      "dentistry": { "name": "Yaala Ilkaanii", "desc": "Qulqulleessuu, guutuu fi kunuunsa ilkaanii ariffata fayyaa ta'eef." },
-      "pharmacy": { "name": "Firaarmaasii", "desc": "Qoricha bakka tajaajilaa gorsa keessan booda." },
-      "cardiology": { "name": "Yaala Onnee", "desc": "Qorannoo onnee, ECG fi kunuunsa onnee-ufuu yeroo dheeraa." },
-      "ent": { "name": "ENT", "desc": "Kunuunsa gurra, funyaanii fi kokkee umurii hundaaf." }
+      "general": {
+        "name": "Yaala Waliigalaa",
+        "desc": "Gorsa guyyaa guyyaa fi kunuunsa dhowwii maatii guutuuf."
+      },
+      "pediatrics": {
+        "name": "Yaala Ijoollee",
+        "desc": "Kunuunsa qajeelaa fi adda baafame daa'imaa, ijoollee fi dargaggootaaf."
+      },
+      "maternal": {
+        "name": "Fayyaa Haadhaa fi Daa'imaa",
+        "desc": "Kunuunsa ulfa, dhaloota fi kunuunsa daa'imaa bakka nageenya qabu keessatti."
+      },
+      "lab": {
+        "name": "Laaboratorii fi Qorannoo",
+        "desc": "Qorannoo laaboratorii saffisaa fi sirrii murteessii addaan baafachuuf."
+      },
+      "dentistry": {
+        "name": "Yaala Ilkaanii",
+        "desc": "Qulqulleessuu, guutuu fi kunuunsa ilkaanii ariffata fayyaa ta'eef."
+      },
+      "pharmacy": {
+        "name": "Firaarmaasii",
+        "desc": "Qoricha bakka tajaajilaa gorsa keessan booda."
+      },
+      "cardiology": {
+        "name": "Yaala Onnee",
+        "desc": "Qorannoo onnee, ECG fi kunuunsa onnee-ufuu yeroo dheeraa."
+      },
+      "ent": {
+        "name": "ENT",
+        "desc": "Kunuunsa gurra, funyaanii fi kokkee umurii hundaaf."
+      }
     },
     "whatWeProvide": {
       "title": "Waan Kennuu",
       "subtitle": "Tarkaanfii kunuunsaa hundumaa — iddoo tokko keessatti.",
       "badge": "Waa'ee Kiliinikaa SofOmar",
       "items": [
-        { "title": "Gorsa Dhukkubsattoota Alaa", "desc": "Beellamaan ykn al-beellamaan hakiimii daftee argaa." },
-        { "title": "Laaboratorii fi Qorannoo", "desc": "Qorannoo dhiigaa, suuraa fi bu'aa saffisaa — asuma." },
-        { "title": "Qoricha fi Firaarmaasii", "desc": "Qoricha sirrii harka keessan qabattanii daa'imaa xumurtaa." },
-        { "title": "Kunuunsa Daa'imaa fi Haadhaa", "desc": "Ulfaa irraa jalqabee qorannoo daa'imaa — fayyaan maatii guutummaatti." },
-        { "title": "Kunuunsa Ilkaanii fi ENT", "desc": "Kunuunsa adda baafame ariffata keessaniif, gurra, funyaaniifi kokkeef." },
-        { "title": "Kunuunsa Onnee fi Duubba", "desc": "Dhaabbii onnee-ufuu itti fufaa fi beellama duubbaa salphaa." }
+        {
+          "title": "Gorsa Dhukkubsattoota Alaa",
+          "desc": "Beellamaan ykn al-beellamaan hakiimii daftee argaa."
+        },
+        {
+          "title": "Laaboratorii fi Qorannoo",
+          "desc": "Qorannoo dhiigaa, suuraa fi bu'aa saffisaa — asuma."
+        },
+        {
+          "title": "Qoricha fi Firaarmaasii",
+          "desc": "Qoricha sirrii harka keessan qabattanii daa'imaa xumurtaa."
+        },
+        {
+          "title": "Kunuunsa Daa'imaa fi Haadhaa",
+          "desc": "Ulfaa irraa jalqabee qorannoo daa'imaa — fayyaan maatii guutummaatti."
+        },
+        {
+          "title": "Kunuunsa Ilkaanii fi ENT",
+          "desc": "Kunuunsa adda baafame ariffata keessaniif, gurra, funyaaniifi kokkeef."
+        },
+        {
+          "title": "Kunuunsa Onnee fi Duubba",
+          "desc": "Dhaabbii onnee-ufuu itti fufaa fi beellama duubbaa salphaa."
+        }
       ]
     },
     "featured": {
       "title": "Tajaajiloota Caalmaatti Filataman",
       "subtitle": "Kunuunsa guyyuu guyyuu kenninu haala qixa dhihootti.",
       "cards": [
-        { "title": "Laaboratorii fi Qorannoo", "desc": "Laaboratorii guutummaa keessaa bu'aa saffisaa fi sirrii." },
-        { "title": "Gorsa Dhukkubsattoota Alaa", "desc": "Toora interneetii beellamadhaa hakiimii eeggachaa malee argaa." },
-        { "title": "Kunuunsa Haadhaa fi Daa'imaa", "desc": "Kunuunsa nageenya qabu ulfaa irraa jalqabee daa'imaa irratti." }
+        {
+          "title": "Laaboratorii fi Qorannoo",
+          "desc": "Laaboratorii guutummaa keessaa bu'aa saffisaa fi sirrii."
+        },
+        {
+          "title": "Gorsa Dhukkubsattoota Alaa",
+          "desc": "Toora interneetii beellamadhaa hakiimii eeggachaa malee argaa."
+        },
+        {
+          "title": "Kunuunsa Haadhaa fi Daa'imaa",
+          "desc": "Kunuunsa nageenya qabu ulfaa irraa jalqabee daa'imaa irratti."
+        }
       ]
     },
     "howItWorks": {
       "title": "Akkamitti Hojjeta",
       "subtitle": "Fayyaa haga-qabaa argachuun salphaadha.",
       "steps": [
-        { "title": "Galmaa'i", "desc": "Gali ykn toora interneetii galmaa'i — galmee keessan dafee uumama." },
-        { "title": "Beellama", "desc": "Hakiimii fi yeroo keessan filadhaa, lakkoofsa taraannoo dafee argadhaa." },
-        { "title": "Gorsi", "desc": "Hakiimii keessan galmee dijitaalaa, qoricha fi ajaja laaboratorii wajjin argaa." },
-        { "title": "Duubbaa", "desc": "Bu'aa argadhaa, qoricha qabadhaa, beellama duubbaa tokkitti tolchaa." }
+        {
+          "title": "Galmaa'i",
+          "desc": "Gali ykn toora interneetii galmaa'i — galmee keessan dafee uumama."
+        },
+        {
+          "title": "Beellama",
+          "desc": "Hakiimii fi yeroo keessan filadhaa — dhaqanii galaniif lakkoofsa taraannoo yeroo tokkotti argatu, gaaffileen interneetii bilbilaadhaan mirkanaa'u."
+        },
+        {
+          "title": "Gorsi",
+          "desc": "Hakiimii keessan galmee dijitaalaa, qoricha fi ajaja laaboratorii wajjin argaa."
+        },
+        {
+          "title": "Duubbaa",
+          "desc": "Bu'aa argadhaa, qoricha qabadhaa, beellama duubbaa tokkitti tolchaa."
+        }
       ]
     },
     "whyChooseUs": {
       "title": "Maaliif SofOmar Filattu?",
       "subtitle": "Kiliinikii sirna dijitaalaa dhugaa irratti hojjatu — waaraqaa irratti utuu hin taane.",
       "features": [
-        { "title": "Xurree (queue) yeroodhaan", "desc": "Lakkoofsi xurree kee yeroo doktoraan kee qophaa'u sagalee dhiisuu (screen) irratti adda ba'ee mul'ata." },
-        { "title": "Ajaja (prescription) dijitaalaa", "desc": "Ajajoonni gara faarmaasiitti saani gammachu — ajaja harka hin dubbifamne hin jiru." },
-        { "title": "Bu'aa laabooraatoorii e-", "desc": "Ajajaa fi bu'aa laabooraatoorii kallattii seeneffama dijitaalaa keetti deebi'a." },
-        { "title": "Beellama online", "desc": "Iddoo kamiyyuu galmaa'i fi beellama godhadhu — gahumsa kee dura xurree kee qophaa'a." },
-        { "title": "Kaffaltii ogummaa", "desc": "Bilillee adda-addaa wajjin kaffaltii guutuu, gartokkee fi haftee tokkoo tokkoon mul'ata." },
-        { "title": "Xiinxala (analytics) yeroodhaan", "desc": "Galii, yeroo eegaa fi gahumsa yeroo tokkotti ilaali." }
+        {
+          "title": "Xurree (queue) yeroodhaan",
+          "desc": "Lakkoofsi xurree kee yeroo doktoraan kee qophaa'u sagalee dhiisuu (screen) irratti adda ba'ee mul'ata."
+        },
+        {
+          "title": "Ajaja (prescription) dijitaalaa",
+          "desc": "Ajajoonni gara faarmaasiitti saani gammachu — ajaja harka hin dubbifamne hin jiru."
+        },
+        {
+          "title": "Bu'aa laabooraatoorii e-",
+          "desc": "Ajajaa fi bu'aa laabooraatoorii kallattii seeneffama dijitaalaa keetti deebi'a."
+        },
+        {
+          "title": "Beellama online",
+          "desc": "Iddoo kamiyyuu galmaa'i fi beellama godhadhu — gahumsa kee dura xurree kee qophaa'a."
+        },
+        {
+          "title": "Kaffaltii ogummaa",
+          "desc": "Bilillee adda-addaa wajjin kaffaltii guutuu, gartokkee fi haftee tokkoo tokkoon mul'ata."
+        },
+        {
+          "title": "Xiinxala (analytics) yeroodhaan",
+          "desc": "Galii, yeroo eegaa fi gahumsa yeroo tokkotti ilaali."
+        }
       ]
     },
     "team": {
       "title": "Garee Keenya Beekaa",
       "subtitle": "Hayyootni fi hojjattootni Soof Omaar kaasaa.",
       "groupAlt": "Gareen Soof Omaar",
-      "members": [
-        { "name": "Dr. Saamu'el Alemu", "role": "Hoogaansa Wal'aansa", "desc": "Kokkolii fayyaa baay'ee waggaa 15 ol qaba." },
-        { "name": "Dr. Saara Baqqalaa", "role": "Hayyuu Waliigalaa", "desc": "Wal'aansa ittisaanii fi maatii jaalata." },
-        { "name": "Narsii Haana Taaddasaa", "role": "Narsii Gurguddoo", "desc": "Hojii kilinii fi bilisa'ina nama dhukkubsatu haalaaf." },
-        { "name": "Miika'el Girmaa", "role": "Ogeessa Laabooraatoorii", "desc": "Bu'aa laabooraatoorii saffisaa fi sirrii kenn." }
-      ]
+      "roles": {
+        "doctor": "Hakiimii",
+        "nurse": "Narsii",
+        "lab_tech": "Ogeessa Laabooraatoorii"
+      }
     },
     "cta": {
       "title": "Fayyuu qophaa'aniittuu?",
@@ -483,5 +567,27 @@
       "rights": "Mirgi hundi eegamaadha.",
       "staffLogin": "Seensa Hojiitootaa"
     }
+  },
+  "slotPicker": {
+    "select": "Yeroo siif mijjaatu filadhu",
+    "available": "jiraa",
+    "noSlots": "Hakiimichaaf guyyaa kanaa yeroo hin jiru.",
+    "error": "Yeroowwan argachuun hin danda'amne."
+  },
+  "priority": {
+    "label": "Dursa",
+    "routine": "Idilee",
+    "urgent": "Hatattamaa",
+    "emergency": "Balaa",
+    "flag": "Dursa kenni",
+    "change": "Dursa jijjiiri",
+    "reason": "Sababa",
+    "reasonPlaceholder": "Sababa maaliif dhukkubsataan kun dursa argachuu akka qabu gabaabidhaan ibsi",
+    "dialogTitle": "Dursa taraannoo qindeessi",
+    "dialogDescription": "Dhukkubsataa kana taraannoo fuulduraatti ariifachiisi",
+    "save": "Dursa olkaayi",
+    "saved": "Dursi haaromfameera",
+    "error": "Dursa haaromsuun hin danda’amne",
+    "reasonRequired": "Mee sababa ibsi"
   }
 }

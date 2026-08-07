@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { db } from '../db';
-import { refreshTokens } from '../db/schema';
+import { users, refreshTokens } from '../db/schema';
 import { eq, lt } from 'drizzle-orm';
 
 const ACCESS_TOKEN_TTL = '15m';
@@ -112,6 +112,60 @@ export class AuthService {
         return;
       }
     }
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const passwordMatches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await db
+      .update(users)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+
+    return { ok: true };
+  }
+
+  async listSessions(userId: string) {
+    const tokens = await db
+      .select({
+        id: refreshTokens.id,
+        revoked: refreshTokens.revoked,
+        createdAt: refreshTokens.createdAt,
+        expiresAt: refreshTokens.expiresAt,
+      })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, userId));
+
+    const now = new Date();
+    return tokens
+      .filter((t) => !t.revoked && new Date(t.expiresAt) > now)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async revokeAllSessionsExcept(userId: string, currentRefreshToken: string) {
+    const tokens = await db
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, userId));
+
+    for (const t of tokens) {
+      if (t.revoked) continue;
+      const isCurrent = await bcrypt.compare(currentRefreshToken, t.tokenHash);
+      if (!isCurrent) {
+        await this.revokeToken(t.id);
+      }
+    }
+
+    return { ok: true };
   }
 
   async bootstrapAdmin(dto: { email: string; password: string; name: string }) {

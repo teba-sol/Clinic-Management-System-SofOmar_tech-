@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
+import { cn, getClinicToday, getClinicNowTime } from '@/lib/utils';
+import { PriorityBadge } from '@/components/shared/priority-badge';
+import type { AppointmentPriority } from '@/types';
 
 const statusConfig: Record<string, { label: string; class: string }> = {
   checked_in: { label: 'Checked In', class: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
@@ -10,8 +12,8 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 
 function QueueBoard() {
   const { t, i18n } = useTranslation();
-  const dateStr = new Date().toLocaleDateString(i18n.language === 'am' ? 'am-ET' : i18n.language === 'om' ? 'om-ET' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const { data, isFetching } = useQuery<Record<string, { doctorName: string; entries: { id: string; queueNumber: number; status: string; patientName: string; scheduledAt: string }[] }>>({
+  const dateStr = getClinicToday(i18n.language === 'am' ? 'am-ET' : i18n.language === 'om' ? 'om-ET' : 'en-US');
+  const { data, isFetching } = useQuery<Record<string, { doctorName: string; entries: { id: string; queueNumber: number; status: string; priority?: AppointmentPriority | null; patientName: string; scheduledAt: string }[] }>>({
     queryKey: ['queue-display'],
     queryFn: () =>
       fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/queue-display`)
@@ -37,7 +39,7 @@ function QueueBoard() {
           )}
           <div className="text-right">
             <p className="text-2xl font-bold tabular-nums">
-              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+              {getClinicNowTime({ hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
         </div>
@@ -85,7 +87,8 @@ function QueueBoard() {
                     )}>
                       {entry.queueNumber}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <PriorityBadge priority={entry.priority ?? 'routine'} dark />
                       <p className={cn(
                         'text-lg font-medium truncate',
                         isActive && 'text-amber-200',
@@ -109,7 +112,7 @@ function QueueBoard() {
 
       <div className="absolute bottom-4 left-0 right-0 text-center">
         <p className="text-xs text-slate-600">
-          {t('queue.autoRefreshes')} &middot; {new Date().toLocaleTimeString()}
+          {t('queue.autoRefreshes')} &middot; {getClinicNowTime()}
         </p>
       </div>
     </div>

@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { getApiError } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { usePatientContext } from '@/context/patient-context';
 import { useSocket, useLabResults } from '@/hooks/use-socket';
 import { EmptyState } from '@/components/shared/empty-state';
-import { getGreeting } from '@/lib/utils';
+import { PriorityDialog } from '@/components/appointments/priority-dialog';
+import { getGreeting, getClinicToday } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -70,6 +71,18 @@ export default function DoctorDashboardPage() {
   const queryClient = useQueryClient();
 
   const [filterTab, setFilterTab] = useState<FilterTab>('waiting');
+  const [priorityTarget, setPriorityTarget] = useState<Appointment | null>(null);
+
+  const priorityMutation = useMutation({
+    mutationFn: ({ id, priority, reason }: { id: string; priority: 'routine' | 'urgent' | 'emergency'; reason?: string }) =>
+      api.patch(`/appointments/${id}/priority`, { priority, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['doctor-queue'] });
+      setPriorityTarget(null);
+      toast.success('Priority updated');
+    },
+    onError: (err) => toast.error(getApiError(err, 'Failed to update priority')),
+  });
 
   const { queue, connected } = useSocket(user?.id ?? null);
   const { labResults, lastLabResult, clearLabResults } = useLabResults();
@@ -185,11 +198,7 @@ export default function DoctorDashboardPage() {
 
   const greeting = getGreeting;
 
-  const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  const today = getClinicToday();
 
   return (
     <div className="space-y-6">
@@ -395,6 +404,7 @@ export default function DoctorDashboardPage() {
                         ? (a) => handleOpenWorkspace(a as AppointmentWithPatient)
                         : undefined
                     }
+                    onSetPriority={setPriorityTarget}
                     isPending={startVisitMutation.isPending}
                   />
                 );
@@ -403,6 +413,18 @@ export default function DoctorDashboardPage() {
           )}
         </>
       )}
+
+      <PriorityDialog
+        open={!!priorityTarget}
+        onOpenChange={(o) => { if (!o) setPriorityTarget(null); }}
+        appointment={priorityTarget}
+        patientName={priorityTarget ? queueData?.find((a) => a.id === priorityTarget.id)?.patient?.firstName : undefined}
+        isSaving={priorityMutation.isPending}
+        onSave={(priority, reason) => {
+          if (!priorityTarget) return;
+          priorityMutation.mutate({ id: priorityTarget.id, priority, reason });
+        }}
+      />
     </div>
   );
 }

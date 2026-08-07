@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -26,6 +26,15 @@ class LogoutDto {
 
   @IsUUID()
   userId!: string;
+}
+
+class ChangePasswordDto {
+  @IsString()
+  currentPassword!: string;
+
+  @IsString()
+  @MinLength(6)
+  newPassword!: string;
 }
 
 class BootstrapAdminDto {
@@ -74,5 +83,31 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   getMe(@CurrentUser() user: any) {
     return user;
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  listSessions(@CurrentUser() user: { userId: string }) {
+    return this.authService.listSessions(user.userId);
+  }
+
+  @Delete('sessions')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  revokeAllSessions(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: { refreshToken: string },
+  ) {
+    return this.authService.revokeAllSessionsExcept(user.userId, dto.refreshToken);
   }
 }

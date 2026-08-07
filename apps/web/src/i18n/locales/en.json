@@ -129,6 +129,22 @@
     "noPatients": "No patients in queue",
     "autoRefreshes": "Auto-refreshes every 10s"
   },
+  "priority": {
+    "label": "Priority",
+    "routine": "Routine",
+    "urgent": "Urgent",
+    "emergency": "Emergency",
+    "flag": "Set Priority",
+    "change": "Change Priority",
+    "reason": "Reason",
+    "reasonPlaceholder": "Briefly describe why this patient should be prioritized",
+    "dialogTitle": "Set Queue Priority",
+    "dialogDescription": "Flag this patient so they move to the front of the queue.",
+    "save": "Save Priority",
+    "saved": "Priority updated",
+    "error": "Failed to update priority",
+    "reasonRequired": "Please describe the reason"
+  },
   "visit": {
     "title": "Visits",
     "newVisit": "New Visit",
@@ -348,7 +364,7 @@
   "landing": {
     "nav": {
       "home": "Home",
-      "about": "About",
+      "about": "Why Us",
       "services": "Services",
       "contact": "Contact",
       "book": "Book Appointment",
@@ -357,15 +373,19 @@
     },
     "hero": {
       "badge": "Quality care for our community",
-      "title": "Fast, digital care. Built around you,",
-      "titleHighlight": "Your health first.",
+      "title": "Your health first. Fast, digital care,",
+      "titleHighlight": "built around you.",
       "subtitle": "Walk in or book online — our doctors, laboratories, and pharmacy work together to get you healthy and back to life quickly.",
       "primaryCta": "Book Appointment",
       "secondaryCta": "Learn more"
     },
     "quickBook": {
+      "badge": "Online Booking",
       "heading": "Book an Appointment",
       "subheading": "Request a visit — our reception team will call you to confirm.",
+      "imageAlt": "Patient being welcomed at SofOmar Clinic",
+      "imageBadgeTitle": "Same-day appointments",
+      "imageBadgeText": "Our team confirms your visit by phone",
       "name": "Full name",
       "namePlaceholder": "Your full name",
       "phone": "Phone number",
@@ -393,14 +413,14 @@
       "submitAnother": "Submit another request"
     },
     "stats": {
-      "doctors": "20+",
-      "patients": "10,000+",
-      "satisfaction": "97%",
+      "title": "Caring for the community",
+      "subtitle": "Real numbers from our clinic — today, not a promise.",
       "doctorsLabel": "Qualified Doctors",
-      "patientsLabel": "Patients Served",
-      "satisfactionLabel": "Satisfaction Rate"
+      "patientsLabel": "Registered Patients",
+      "departmentsLabel": "Departments"
     },
     "services": {
+      "badge": "What we offer",
       "title": "Our Departments",
       "subtitle": "A full range of care under one roof — from everyday checkups to specialised treatment.",
       "general": { "name": "General Medicine", "desc": "Everyday consultations and preventive care for the whole family." },
@@ -439,7 +459,7 @@
       "subtitle": "Getting quality care is simple.",
       "steps": [
         { "title": "Register", "desc": "Walk in or register online — your records are created instantly." },
-        { "title": "Book", "desc": "Pick your doctor and time, and get your queue number right away." },
+        { "title": "Book", "desc": "Choose your doctor and time — walk-ins get their queue number right away, online requests are confirmed by phone." },
         { "title": "Consult", "desc": "See your doctor with digital records, prescriptions, and lab orders in one visit." },
         { "title": "Follow-up", "desc": "Get results, collect medication, and book follow-ups in a tap." }
       ]
@@ -460,12 +480,11 @@
       "title": "Meet Our Crew",
       "subtitle": "The doctors and staff who keep SofOmar running.",
       "groupAlt": "The SofOmar crew",
-      "members": [
-        { "name": "Dr. X", "role": "Medical Director", "desc": "Over 15 years of experience leading patient-centred care." },
-        { "name": "Dr. Y", "role": "General Practitioner", "desc": "Passionate about preventive care and family medicine." },
-        { "name": "Nurse Z", "role": "Head Nurse", "desc": "Coordinates daily clinical operations and patient comfort." },
-        { "name": "A B", "role": "Lab Technician", "desc": "Delivers fast, accurate laboratory results for every diagnosis." }
-      ]
+      "roles": {
+        "doctor": "Doctor",
+        "nurse": "Nurse",
+        "lab_tech": "Lab Technician"
+      }
     },
     "cta": {
       "title": "Ready to feel better?",
@@ -483,5 +502,11 @@
       "rights": "All rights reserved.",
       "staffLogin": "Staff Login"
     }
+  },
+  "slotPicker": {
+    "select": "Select a time slot",
+    "available": "available",
+    "noSlots": "No available slots for this doctor on this date.",
+    "error": "Could not load time slots."
   }
 }

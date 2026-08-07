@@ -1,9 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useBookingModal } from './booking-modal';
 
 export function Hero() {
   const { t } = useTranslation();
+  const { open } = useBookingModal();
 
   return (
     <section id="home" className="relative flex min-h-[100svh] flex-col justify-center overflow-hidden">
@@ -40,7 +42,7 @@ export function Hero() {
 
         <div className="mt-9 flex animate-fade-up flex-wrap items-center gap-3" style={{ animationDelay: '0.35s' }}>
           <Button
-            render={<a href="#book" />}
+            onClick={open}
             size="lg"
             className="h-12 rounded-full bg-cta px-8 font-semibold text-cta-foreground hover:bg-amber-600"
           >
@@ -48,7 +50,7 @@ export function Hero() {
             <ArrowRight className="size-4" />
           </Button>
           <Button
-            render={<a href="#about" />}
+            render={<a href="#why-us" />}
             size="lg"
             variant="ghost"
             className="h-12 rounded-full border border-white/30 px-8 font-semibold text-white hover:bg-white/10"

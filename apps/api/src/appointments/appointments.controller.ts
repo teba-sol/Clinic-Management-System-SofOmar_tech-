@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { UpdateAppointmentPriorityDto } from './dto/update-appointment-priority.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('appointments')
@@ -27,6 +29,15 @@ export class AppointmentsController {
   @Roles('admin', 'receptionist', 'doctor', 'nurse')
   findByPatient(@Param('patientId') patientId: string) {
     return this.appointmentsService.findByPatient(patientId);
+  }
+
+  @Get('available-slots')
+  @Public()
+  getAvailableSlots(
+    @Query('doctorId') doctorId: string,
+    @Query('date') date: string,
+  ) {
+    return this.appointmentsService.getAvailableSlots(doctorId, date);
   }
 
   @Get('queue')
@@ -55,5 +66,15 @@ export class AppointmentsController {
     @CurrentUser() user: any,
   ) {
     return this.appointmentsService.updateStatus(id, status, user?.role);
+  }
+
+  @Patch(':id/priority')
+  @Roles('nurse', 'doctor', 'admin')
+  updatePriority(
+    @Param('id') id: string,
+    @Body() dto: UpdateAppointmentPriorityDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.appointmentsService.updatePriority(id, dto, user);
   }
 }

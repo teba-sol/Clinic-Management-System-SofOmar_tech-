@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Send, MessageCircle, Globe, AtSign, MapPin, Phone, Mail } from 'lucide-react';
 import { departments } from './departments';
+import { useBookingModal } from './booking-modal';
+import { useClinicSettings } from '@/hooks/use-clinic-settings';
 
 const quickLinks = [
   { href: '#home', key: 'landing.nav.home' },
-  { href: '#about', key: 'landing.nav.about' },
+  { href: '#why-us', key: 'landing.nav.about' },
   { href: '#services', key: 'landing.nav.services' },
   { href: '#contact', key: 'landing.nav.contact' },
 ];
@@ -19,13 +21,20 @@ const socials = [
 
 export function LandingFooter() {
   const { t } = useTranslation();
+  const { open } = useBookingModal();
+  const { data: settings } = useClinicSettings();
+
+  const clinicName = settings?.clinicName || 'SofOmar Clinic';
+  const phone = settings?.phone || t('landing.footer.phone');
+  const address = settings?.address || t('landing.footer.address');
+  const email = settings?.email || t('landing.footer.email');
 
   return (
     <footer id="contact" className="scroll-mt-16 bg-brand-950 text-brand-50">
       <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <img src="/landing/logo.svg" alt={t('app.name')} className="h-11 w-auto" />
+            <img src="/landing/logo.svg" alt={clinicName} className="h-11 w-auto" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/60">{t('landing.footer.tagline')}</p>
             <div className="mt-5 flex gap-2.5">
               {socials.map((s) => (
@@ -52,9 +61,13 @@ export function LandingFooter() {
                 </li>
               ))}
               <li>
-                <a href="#book" className="text-sm text-white/70 transition-colors hover:text-white">
+                <button
+                  type="button"
+                  onClick={open}
+                  className="text-sm text-white/70 transition-colors hover:text-white"
+                >
                   {t('landing.nav.book')}
-                </a>
+                </button>
               </li>
             </ul>
           </div>
@@ -75,15 +88,15 @@ export function LandingFooter() {
             <ul className="mt-4 space-y-3 text-sm text-white/70">
               <li className="flex items-start gap-2.5">
                 <Phone className="mt-0.5 size-4 shrink-0 text-brand-500" />
-                {t('landing.footer.phone')}
+                {phone}
               </li>
               <li className="flex items-start gap-2.5">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-brand-500" />
-                {t('landing.footer.address')}
+                {address}
               </li>
               <li className="flex items-start gap-2.5">
                 <Mail className="mt-0.5 size-4 shrink-0 text-brand-500" />
-                {t('landing.footer.email')}
+                {email}
               </li>
             </ul>
           </div>
@@ -93,7 +106,7 @@ export function LandingFooter() {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 py-6 sm:flex-row lg:px-8">
           <p className="text-xs text-white/50">
-            &copy; {new Date().getFullYear()} SofOmar Tech. {t('landing.footer.rights')}
+            &copy; {new Date().getFullYear()} {clinicName}. {t('landing.footer.rights')}
           </p>
           <Link to="/login" className="text-xs font-medium text-white/60 transition-colors hover:text-white">
             {t('landing.footer.staffLogin')}

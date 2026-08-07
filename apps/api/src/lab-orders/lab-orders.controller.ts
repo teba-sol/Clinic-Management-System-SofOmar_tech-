@@ -26,11 +26,15 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { labResultFileStorage, UPLOADS_ROOT } from './upload.config';
 import { generateLabReportPdf } from './utils/generate-lab-report-pdf';
 import { decryptFile, encryptFile } from './utils/file-crypto';
+import { ClinicSettingsService } from '../clinic-settings/clinic-settings.service';
 
 @Controller('lab-orders')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class LabOrdersController {
-  constructor(private readonly labOrdersService: LabOrdersService) {}
+  constructor(
+    private readonly labOrdersService: LabOrdersService,
+    private readonly clinicSettingsService: ClinicSettingsService,
+  ) {}
 
   @Post()
   @Roles('doctor')
@@ -60,6 +64,7 @@ export class LabOrdersController {
   @Roles('admin', 'doctor', 'nurse', 'lab_tech')
   async generatePdf(@Param('id') id: string) {
     const order = await this.labOrdersService.findOne(id);
+    const settings = await this.clinicSettingsService.get();
     const pdf = await generateLabReportPdf({
       patientName:
         `${order.patient?.firstName ?? ''} ${order.patient?.lastName ?? ''}`.trim() ||
@@ -70,6 +75,9 @@ export class LabOrdersController {
       status: order.status,
       resultText: order.resultText ?? '',
       date: new Date(order.createdAt).toLocaleString(),
+      clinicName: settings.clinicName || 'SofOmar Clinic',
+      clinicAddress: settings.address || 'Addis Ababa, Ethiopia',
+      clinicPhone: settings.phone || '+251 9XX XXX XXX',
     });
     return new StreamableFile(pdf, {
       type: 'application/pdf',

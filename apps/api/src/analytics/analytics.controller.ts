@@ -63,6 +63,55 @@ export class AnalyticsController {
     return { daily: rows, byMethod: totals, period: { start, end } };
   }
 
+  @Get('billing-summary')
+  @Roles('admin', 'cashier')
+  async billingSummary(@Query('range') range?: string) {
+    const start = this.parseRange(range);
+
+    const [totals] = await db
+      .select({
+        collected: sql`COALESCE(SUM(CASE WHEN ${invoices.status} IN ('paid','partial') THEN ${invoices.amountPaid}::numeric ELSE 0 END), 0)`,
+        outstanding: sql`COALESCE(SUM(CASE
+          WHEN ${invoices.status} = 'pending' THEN ${invoices.totalAmount}::numeric
+          WHEN ${invoices.status} = 'partial' THEN (${invoices.totalAmount}::numeric - ${invoices.amountPaid}::numeric)
+          ELSE 0 END), 0)`,
+        unpaidInvoices: sql`COUNT(CASE WHEN ${invoices.status} IN ('pending','partial') THEN 1 END)`,
+      })
+      .from(invoices)
+      .where(gte(invoices.createdAt, start));
+
+    const byMethod = await db
+      .select({
+        method: invoices.paymentMethod,
+        total: sql`SUM(${invoices.amountPaid}::numeric)`,
+        count: sql`COUNT(*)`,
+      })
+      .from(invoices)
+      .where(
+        and(
+          gte(invoices.createdAt, start),
+          sql`${invoices.status} IN ('paid', 'partial')`,
+          sql`${invoices.paymentMethod} IS NOT NULL`,
+        ),
+      )
+      .groupBy(invoices.paymentMethod)
+      .orderBy(sql`SUM(${invoices.amountPaid}::numeric) DESC`);
+
+    const num = (v: unknown) => Number(v ?? 0);
+
+    return {
+      collected: num(totals.collected),
+      outstanding: num(totals.outstanding),
+      unpaidInvoices: Number(totals.unpaidInvoices ?? 0),
+      byMethod: byMethod.map((m) => ({
+        method: m.method,
+        total: num(m.total),
+        count: Number(m.count ?? 0),
+      })),
+      period: { start, range },
+    };
+  }
+
   @Get('patient-flow')
   @Roles('admin', 'doctor', 'cashier')
   async patientFlow(@Query('start') startStr?: string, @Query('end') endStr?: string) {

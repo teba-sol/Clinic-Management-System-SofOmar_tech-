@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { Reveal } from './reveal';
+import { useBookingModal } from './booking-modal';
 
 const cardIndexes = [0, 1, 2];
 const featuredImages = [
@@ -11,6 +12,7 @@ const featuredImages = [
 
 export function FeaturedServices() {
   const { t } = useTranslation();
+  const { open } = useBookingModal();
 
   return (
     <section className="bg-gradient-to-b from-white to-brand-50 py-20 lg:py-28">
@@ -36,13 +38,14 @@ export function FeaturedServices() {
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
                     {t(`landing.featured.cards.${i}.desc`)}
                   </p>
-                  <a
-                    href="#book"
+                  <button
+                    type="button"
+                    onClick={open}
                     className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
                   >
                     {t('landing.hero.primaryCta')}
                     <ArrowRight className="size-4" />
-                  </a>
+                  </button>
                 </div>
               </div>
             </Reveal>

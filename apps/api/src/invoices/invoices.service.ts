@@ -8,7 +8,14 @@ import { PayInvoiceDto } from './dto/pay-invoice.dto';
 @Injectable()
 export class InvoicesService {
   async create(dto: CreateInvoiceDto) {
-    const resolvedItems: { serviceId: string | null; description: string; quantity: number; unitPrice: string }[] = [];
+    const resolvedItems: {
+      serviceId: string | null;
+      description: string;
+      quantity: number;
+      unitPrice: string;
+      sourceType: string | null;
+      sourceId: string | null;
+    }[] = [];
 
     for (const item of dto.items) {
       if (item.serviceId) {
@@ -19,6 +26,8 @@ export class InvoicesService {
           description: service.name,
           quantity: item.quantity,
           unitPrice: Number(service.defaultPrice).toFixed(2),
+          sourceType: item.sourceType ?? null,
+          sourceId: item.sourceId ?? null,
         });
       } else {
         resolvedItems.push({
@@ -26,6 +35,8 @@ export class InvoicesService {
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice.toFixed(2),
+          sourceType: item.sourceType ?? null,
+          sourceId: item.sourceId ?? null,
         });
       }
     }
@@ -48,6 +59,8 @@ export class InvoicesService {
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        sourceType: item.sourceType,
+        sourceId: item.sourceId,
       })),
     );
 
@@ -71,7 +84,22 @@ export class InvoicesService {
   }
 
   async getAutoFill(patientId: string) {
-    const items: { serviceId: string | null; description: string; quantity: number; unitPrice: number; category: string }[] = [];
+    const medications: {
+      key: string;
+      drugName: string;
+      dosage: string | null;
+      serviceId: string | null;
+      suggestedPrice: number | null;
+      unitPrice: number;
+    }[] = [];
+    const labs: {
+      key: string;
+      testType: string;
+      status: string;
+      serviceId: string | null;
+      suggestedPrice: number | null;
+      unitPrice: number;
+    }[] = [];
 
     const recentVisits = await db
       .select()
@@ -91,54 +119,96 @@ export class InvoicesService {
       }
     }
 
-    const consultation = await db
+    const activeServices = await db
       .select()
       .from(services)
-      .where(and(eq(services.category, 'consultation'), eq(services.active, true)))
-      .orderBy(services.name)
-      .then((r) => r[0]);
-    if (consultation) {
-      items.push({ serviceId: consultation.id, description: consultation.name, quantity: 1, unitPrice: Number(consultation.defaultPrice), category: 'consultation' });
+      .where(eq(services.active, true));
+
+    const findService = (category: string, needle: string) =>
+      activeServices.find(
+        (s) =>
+          s.category === category &&
+          s.name.toLowerCase().includes(needle.toLowerCase()),
+      );
+
+    const billedSources = new Set<string>();
+    const legacyDescriptions: string[] = [];
+    const billedRows = await db
+      .select({
+        sourceType: invoiceItems.sourceType,
+        sourceId: invoiceItems.sourceId,
+        description: invoiceItems.description,
+      })
+      .from(invoiceItems)
+      .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+      .where(eq(invoices.patientId, patientId));
+    for (const row of billedRows) {
+      if (row.sourceType && row.sourceId) {
+        billedSources.add(`${row.sourceType}:${row.sourceId}`);
+      } else {
+        legacyDescriptions.push(row.description.toLowerCase());
+      }
     }
 
-    if (visit) {
-      const visitPrescriptions = await db.select().from(prescriptions).where(eq(prescriptions.visitId, visit.id));
-      const dispensing = await db
-        .select()
-        .from(services)
-        .where(and(eq(services.active, true), sql`(LOWER(${services.name}) LIKE '%dispens%' OR LOWER(${services.name}) LIKE '%prescription%')`))
-        .orderBy(services.name)
-        .then((r) => r[0]);
-      if (dispensing) {
-        visitPrescriptions.forEach(() => {
-          items.push({ serviceId: dispensing.id, description: dispensing.name, quantity: 1, unitPrice: Number(dispensing.defaultPrice), category: dispensing.category });
+    const matchesLegacyBilled = (needle: string) => {
+      const n = needle.toLowerCase().trim();
+      return legacyDescriptions.some((d) => d === n || d.includes(n));
+    };
+
+    const patientPrescriptions = await db
+      .select()
+      .from(prescriptions)
+      .where(and(eq(prescriptions.patientId, patientId), sql`${prescriptions.status} <> 'cancelled'`));
+
+    const seenMeds = new Set<string>();
+    for (const rx of patientPrescriptions) {
+      const items = (rx.items as { drugName?: string; dosage?: string }[]) ?? [];
+      items.forEach((item, idx) => {
+        const drugName = item.drugName?.trim();
+        if (!drugName) return;
+        const dosage = item.dosage?.trim() || null;
+        const dedupeKey = `${drugName.toLowerCase()}|${(dosage || '').toLowerCase()}`;
+        if (seenMeds.has(dedupeKey)) return;
+        seenMeds.add(dedupeKey);
+
+        const sourceKey = `prescription:${rx.id}:${idx}`;
+        if (billedSources.has(sourceKey)) return;
+        if (matchesLegacyBilled(dosage ? `${drugName} (${dosage})` : drugName)) return;
+        if (matchesLegacyBilled(drugName)) return;
+
+        const matched = findService('medication', drugName);
+        medications.push({
+          key: `${rx.id}:${idx}`,
+          drugName,
+          dosage,
+          serviceId: matched?.id ?? null,
+          suggestedPrice: matched ? Number(matched.defaultPrice) : null,
+          unitPrice: matched ? Number(matched.defaultPrice) : 0,
         });
-      }
-
-      const visitLabs = await db
-        .select()
-        .from(labOrders)
-        .where(and(eq(labOrders.visitId, visit.id), sql`${labOrders.status} <> 'cancelled'`));
-      for (const lab of visitLabs) {
-        const matchingService = await db
-          .select()
-          .from(services)
-          .where(and(eq(services.category, 'lab'), sql`LOWER(${services.name}) LIKE ${'%' + lab.testType.toLowerCase() + '%'}`, eq(services.active, true)))
-          .orderBy(services.name)
-          .then((r) => r[0]);
-        if (matchingService) {
-          items.push({
-            serviceId: matchingService.id,
-            description: matchingService.name,
-            quantity: 1,
-            unitPrice: Number(matchingService.defaultPrice),
-            category: 'lab',
-          });
-        }
-      }
+      });
     }
 
-    return { visitId: visit?.id ?? null, hasVisit: !!visit, items };
+    const patientLabs = await db
+      .select()
+      .from(labOrders)
+      .where(and(eq(labOrders.patientId, patientId), sql`${labOrders.status} <> 'cancelled'`));
+
+    for (const lab of patientLabs) {
+      if (billedSources.has(`lab_order:${lab.id}`)) continue;
+      const testType = lab.testType.trim();
+      if (matchesLegacyBilled(testType)) continue;
+      const matched = findService('lab', testType);
+      labs.push({
+        key: lab.id,
+        testType,
+        status: lab.status,
+        serviceId: matched?.id ?? null,
+        suggestedPrice: matched ? Number(matched.defaultPrice) : null,
+        unitPrice: matched ? Number(matched.defaultPrice) : 0,
+      });
+    }
+
+    return { visitId: visit?.id ?? null, hasVisit: !!visit, medications, labs };
   }
 
   async pay(id: string, dto: PayInvoiceDto) {
